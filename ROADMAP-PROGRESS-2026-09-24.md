@@ -110,6 +110,8 @@ UI hiding in the Website WebView is presentation, not an authorization boundary.
    contracts from the single MyPersonas migration authority to staging.
 5. Add server-side symmetric block projections, content-report RPC, and a staff
    moderation queue before calling client filtering an authorization control.
+   *(2026-10-16: symmetric blocks were already server-side in migration 051; the
+   content-report RPC and staff queue are MyPersonas migration 080, tested, not yet applied.)*
 6. Decide whether the public domain remains a redirect or cuts over to a full
    AliaSpaces home. DNS, Pages allowlist change, deployment, and store submission
    each require separate approval.

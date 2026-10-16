@@ -27,6 +27,7 @@
       respond_persona_friendship: Object.freeze({ auth: "session", writes: true }),
       remove_persona_friendship: Object.freeze({ auth: "session", writes: true }),
       update_my_profile: Object.freeze({ auth: "session", writes: false }),
+      report_content: Object.freeze({ auth: "session", writes: true }),
     }),
     allowedTables: Object.freeze({
       personas: Object.freeze({ auth: "optional", writes: false }),
@@ -54,10 +55,16 @@
       "save_my_agent_binding_controls",
       "set_persona_backend",
       "save_account_ledger_entry",
+      "staff_list_content_reports",
+      "staff_resolve_content_report",
     ]),
     visibilityKinds: Object.freeze(["block", "mute"]),
     postKinds: Object.freeze(["update", "media", "link"]),
     reactionKinds: Object.freeze(["like", "celebrate", "support", "insight"]),
+    // Mirrors MyPersonas migration 080 (report_content). Staff queue RPCs stay out of this client.
+    reportTargetKinds: Object.freeze(["persona", "post", "comment"]),
+    reportReasons: Object.freeze(["spam", "harassment", "impersonation", "illegal", "other"]),
+    reportDetailsMax: 400,
   });
 
   const api = { CONTRACT };

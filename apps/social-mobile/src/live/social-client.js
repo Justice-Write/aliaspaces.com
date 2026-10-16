@@ -120,6 +120,7 @@
       reactions: clone(seed.reactions || []),
       visibilityRules: clone(seed.visibilityRules || []),
       friendships: clone(seed.friendships || []),
+      reports: clone(seed.reports || []),
     };
 
     function requireSession(session) {
@@ -277,6 +278,42 @@
         }
         if (name === "update_my_profile") {
           return { data: { display_name: args.p_display_name } };
+        }
+        if (name === "report_content") {
+          // Same rules as migration 080: you can only report what you can see, never your own.
+          const kind = args.p_target_kind;
+          let targetPersonaId = null;
+          if (kind === "persona") targetPersonaId = args.p_target_id;
+          if (kind === "post") {
+            const post = state.posts.find((item) => item.id === args.p_target_id);
+            targetPersonaId = post ? post.persona_id : null;
+          }
+          if (kind === "comment") {
+            const comment = state.comments.find((item) => item.id === args.p_target_id);
+            targetPersonaId = comment ? comment.persona_id : null;
+          }
+          const target = state.personas.find((item) => item.id === targetPersonaId);
+          const hidden = new Set(hiddenPersonaIds(state, userId));
+          if (!target || hidden.has(target.id)) {
+            return { error: new LiveError("http", "Reportable content not found") };
+          }
+          if (target.owner === userId) {
+            return { error: new LiveError("http", "You cannot report your own content") };
+          }
+          const existing = state.reports.find((item) => item.reporter === userId && item.target_kind === kind
+            && item.target_id === args.p_target_id && item.status === "open");
+          if (existing) return { data: existing.id };
+          const report = {
+            id: `rpt_${state.reports.length + 1}`,
+            reporter: userId,
+            target_kind: kind,
+            target_id: args.p_target_id,
+            reason: args.p_reason,
+            details: args.p_details || "",
+            status: "open",
+          };
+          state.reports.push(report);
+          return { data: report.id };
         }
         return { error: new LiveError("unknown-rpc", `Fixture transport has no handler for ${name}.`) };
       },
@@ -751,6 +788,34 @@
           p_kind: input.kind,
           p_enabled: !!input.enabled,
         }, { write: true });
+      },
+      async reportContent(input) {
+        const targetKind = input && input.targetKind;
+        const reason = input && input.reason;
+        const details = normalizeText(input && input.details);
+        if (!contract.reportTargetKinds.includes(targetKind) || !(input && input.targetId)) {
+          return { ok: false, error: new LiveError("invalid-report", "Choose a persona, post or comment to report.") };
+        }
+        if (!contract.reportReasons.includes(reason)) {
+          return { ok: false, error: new LiveError("invalid-report", "Choose a report reason.") };
+        }
+        if (details.length > contract.reportDetailsMax) {
+          return { ok: false, error: new LiveError("invalid-report", `Details are limited to ${contract.reportDetailsMax} characters.`) };
+        }
+        const result = await callRpc("report_content", {
+          p_target_kind: targetKind,
+          p_target_id: input.targetId,
+          p_reason: reason,
+          p_details: details,
+          p_reporter_persona_id: input.reporterPersonaId || null,
+        }, { write: true });
+        if (!result.ok && result.error && result.error.status === 404) {
+          // PostgREST answers 404 when the function is not deployed yet (migration 080 not applied).
+          return { ok: false, error: new LiveError("reports-not-enabled", "Reporting is not enabled on the server yet.") };
+        }
+        if (!result.ok) return result;
+        return { ok: true, data: { reportId: result.data, queued: true },
+          message: "Report sent to the staff review queue. It does not remove anything by itself." };
       },
       async respondFriendship(input) {
         return callRpc("respond_persona_friendship", {

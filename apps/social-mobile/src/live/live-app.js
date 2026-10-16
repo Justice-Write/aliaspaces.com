@@ -110,7 +110,27 @@
           ? `<button type="button" class="danger" data-delete-post="${escapeHtml(post.id)}">Delete</button>`
           : `<button type="button" class="danger" data-block-persona="${escapeHtml(post.persona_id)}">Block author</button>`}
       </div>
+      ${own ? "" : reportForm("post", post.id)}
     </article>`;
+  }
+
+  function reportForm(targetKind, targetId) {
+    const loaded = typeof globalThis !== "undefined" && globalThis.AliaSpacesLiveContract;
+    const reasons = (loaded && loaded.CONTRACT.reportReasons) || ["spam", "harassment", "impersonation", "illegal", "other"];
+    return `<details class="report">
+      <summary>Report</summary>
+      <form data-report-form data-target-kind="${escapeHtml(targetKind)}" data-target-id="${escapeHtml(targetId)}">
+        <label>Reason
+          <select name="reason" required>
+            ${reasons.map((reason) => `<option value="${escapeHtml(reason)}">${escapeHtml(reason)}</option>`).join("")}
+          </select>
+        </label>
+        <label>Details (optional)
+          <textarea name="details" maxlength="400"></textarea>
+        </label>
+        <button class="btn">Send report</button>
+      </form>
+    </details>`;
   }
 
   function hiddenPersonaKeys() {
@@ -201,7 +221,7 @@
   function renderSafety() {
     const status = client.status();
     if (!status.signedIn) {
-      panels.safety.innerHTML = `<div class="empty"><h1>Safety</h1><p>Blocks and mutes need a verified session. Content reports are not a first-party RPC yet; the website only exposes error telemetry, not a staff queue.</p></div>`;
+      panels.safety.innerHTML = `<div class="empty"><h1>Safety</h1><p>Blocks, mutes and reports need a verified session. Reports go to a staff review queue; they never remove content by themselves.</p></div>`;
       return;
     }
     const items = blocks.map((item) => {
@@ -214,7 +234,7 @@
     panels.safety.innerHTML = `
       <div class="card">
         <h1>Account blocks</h1>
-        <p>set_persona_visibility_rule(block) is account-wide. Hidden-by-block is applied here as a client filter. A staff moderation queue is not available in this client.</p>
+        <p>set_persona_visibility_rule(block) is account-wide. Hidden-by-block is applied here as a client filter. Report a post from its card; reports go to the staff review queue, which is not part of this client.</p>
       </div>
       <div class="list">${items || `<p class="meta">No account blocks returned.</p>`}</div>
     `;
@@ -425,6 +445,23 @@
   });
 
   document.addEventListener("submit", async (event) => {
+    const reportFormEl = event.target.closest("[data-report-form]");
+    if (reportFormEl) {
+      event.preventDefault();
+      const actor = activePersona();
+      const data = new FormData(reportFormEl);
+      const result = await client.reportContent({
+        targetKind: reportFormEl.getAttribute("data-target-kind"),
+        targetId: reportFormEl.getAttribute("data-target-id"),
+        reason: String(data.get("reason") || ""),
+        details: String(data.get("details") || ""),
+        reporterPersonaId: actor ? actor.id : null,
+      });
+      if (!result.ok) return fail(result, "Report was not sent.");
+      reportFormEl.closest("details").open = false;
+      showToast(result.message);
+      return;
+    }
     if (event.target.id === "authForm") {
       event.preventDefault();
       const data = new FormData(event.target);

@@ -62,8 +62,13 @@ No transition or provider action is authorized by this roadmap.
   - **PWA:** still depends on the redirect-vs-full-home decision below.
 - Android 0.3.1-social (code 4) built, unit-tested, signer-verified and installed
   with `install -r` on the phone; it launches without a crash.
-- Next engineering slice (server-side blocks, content-report RPC, staff
-  queue) is briefed for Claude Code in `_ops/release-2026-10-16/`.
+- Content reports: the live client now has `reportContent()` and a Report
+  control on others' posts, mapped to MyPersonas migration 080 (`report_content`).
+  Until 080 is applied, the app says "Reporting is not enabled on the server
+  yet". Staff queue RPCs are forbidden in this client. Android 0.3.2-social (code 5).
+- Correction: server-side symmetric blocking was already live (MyPersonas
+  migration 051 `persona_visible` / `can_request`). The "client filter only"
+  note in ROADMAP-PROGRESS-2026-09-24 is stale.
 
 ### 2026-09-26 — roadmap sweep
 
@@ -89,5 +94,6 @@ No transition or provider action is authorized by this roadmap.
 | PWA / installable site | Depends on the decision above; needs a CSP and artifact-boundary change |
 | Branch protection and Pages reviewer | Owner to change GitHub repository settings |
 | Android bridge release acceptance | Code 4 installed and launching on the phone (2026-10-16, see `apps/social-mobile/EVIDENCE.md`); two unrelated signed-in MFA accounts still needed for the privacy matrix |
+| Apply MyPersonas migration 080 | SQL Editor, then `supabase/snippets/verify_080_content_reports.sql` (MyPersonas branch `claude/content-reports-20261016`) |
 | Push `main` to GitHub | Credential needs the `workflow` scope (`ci.yml` changed); then run `_ops/release-2026-10-16/push.cmd` |
 

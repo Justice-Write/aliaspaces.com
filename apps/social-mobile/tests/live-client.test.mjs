@@ -200,3 +200,86 @@ test("read-only live personas query is empty-honest and unsigned my_personas is 
   });
   assert.equal(mine.status, 401);
 });
+
+async function signedInNorth() {
+  const loaded = await loadClient();
+  const client = loaded.factory.createClient({ mode: "fixture" });
+  await client.signInWithPassword({
+    email: "fixture.north@example.invalid",
+    password: "fixture-only-not-production",
+  });
+  return { ...loaded, client };
+}
+
+test("reports reach the queue, dedupe, and never target your own content", async () => {
+  const { client } = await signedInNorth();
+  const first = await client.reportContent({ targetKind: "post", targetId: "post_south", reason: "spam", details: "  repeated  ads " });
+  assert.equal(first.ok, true);
+  assert.equal(first.data.queued, true);
+  assert.match(first.message, /does not remove anything/);
+  const again = await client.reportContent({ targetKind: "post", targetId: "post_south", reason: "harassment" });
+  assert.equal(again.data.reportId, first.data.reportId);
+
+  const own = await client.reportContent({ targetKind: "post", targetId: "post_north", reason: "spam" });
+  assert.equal(own.ok, false);
+  assert.match(own.error.message, /own content/);
+});
+
+test("a blocked target is indistinguishable from a missing one when reporting", async () => {
+  const { client } = await signedInNorth();
+  await client.setVisibilityRule({ otherPersonaId: "persona_south", kind: "block", enabled: true });
+  const blocked = await client.reportContent({ targetKind: "persona", targetId: "persona_south", reason: "harassment" });
+  const missing = await client.reportContent({ targetKind: "persona", targetId: "persona_nobody", reason: "harassment" });
+  assert.equal(blocked.ok, false);
+  assert.equal(blocked.error.message, missing.error.message);
+});
+
+test("report input is validated before any network call", async () => {
+  const { client } = await signedInNorth();
+  for (const bad of [
+    { targetKind: "album", targetId: "x", reason: "spam" },
+    { targetKind: "post", targetId: "", reason: "spam" },
+    { targetKind: "post", targetId: "post_south", reason: "rude" },
+    { targetKind: "post", targetId: "post_south", reason: "spam", details: "x".repeat(401) },
+  ]) {
+    const result = await client.reportContent(bad);
+    assert.equal(result.ok, false);
+    assert.equal(result.error.code, "invalid-report");
+  }
+});
+
+test("reports require a session and say plainly when the server has not enabled them", async () => {
+  const { factory, contract } = await loadClient();
+  const unsigned = factory.createClient({ mode: "fixture" });
+  const denied = await unsigned.reportContent({ targetKind: "post", targetId: "post_south", reason: "spam" });
+  assert.equal(denied.ok, false);
+  assert.equal(denied.error.code, "unsigned");
+
+  const notDeployed = factory.createClient({
+    mode: "fixture",
+    transport: Object.assign(factory.createMemoryTransport(), {
+      async rpc() {
+        const error = new factory.LiveError("http", "Could not find the function public.report_content");
+        error.status = 404;
+        return { error };
+      },
+    }),
+  });
+  await notDeployed.signInWithPassword({ email: "fixture.north@example.invalid", password: "fixture-only-not-production" });
+  const off = await notDeployed.reportContent({ targetKind: "post", targetId: "post_south", reason: "spam" });
+  assert.equal(off.ok, false);
+  assert.equal(off.error.code, "reports-not-enabled");
+
+  assert.equal(contract.allowedRpcs.report_content.writes, true);
+  assert.ok(contract.forbiddenRpcs.includes("staff_list_content_reports"));
+  assert.ok(contract.forbiddenRpcs.includes("staff_resolve_content_report"));
+  assert.equal(contract.allowedRpcs.staff_list_content_reports, undefined);
+});
+
+test("live UI offers report on others' posts only and routes it through reportContent", async () => {
+  const source = await readFile(path.join(appRoot, "src/live/live-app.js"), "utf8");
+  assert.match(source, /\$\{own \? "" : reportForm\("post", post\.id\)\}/);
+  assert.match(source, /client\.reportContent\(/);
+  assert.doesNotMatch(source, /Content reports are not a first-party RPC yet/);
+  assert.doesNotMatch(source, /staff_(list|resolve)_content_report/);
+});
