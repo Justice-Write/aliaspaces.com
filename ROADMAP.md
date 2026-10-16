@@ -1,6 +1,6 @@
 # AliaSpaces website roadmap
 
-Last reconciled: 2026-09-27 AKDT
+Last reconciled: 2026-10-16 AKDT
 
 ## Current state
 
@@ -35,6 +35,31 @@ destination, copy, media, placement, visibility, disclosures, and time zone.
 No transition or provider action is authorized by this roadmap.
 
 ## Changelog
+
+### 2026-10-16 — merge to main
+
+- `codex/aliaspaces-roadmap-20260927` fast-forwarded into `main` (16 commits:
+  mobile Milestone 1–2, API 36 handoff, Android bridge isolation, roadmap
+  reconciliation).
+- Line endings normalized to LF with `.gitattributes`. The Pages artifact
+  (`index.html`, `404.html`, `favicon.svg`, `CNAME`) and `pages.yml` are
+  byte-identical to the previous `main`, so the redeploy produces the same
+  live front door.
+- CI now runs `npm test` (front door, mobile, boundary check) on every branch.
+- Tests: 21/23 offline pass plus the boundary check. The 2 network tests were
+  re-run live from a browser: `mypersonas.online` still serves AliaSpaces
+  sign-in and discovery; the public personas query returns 200 with zero
+  published rows; unsigned `my_personas` returns 401.
+- Surface verdicts (by `PROJECT-BOUNDARY.md`, not deferred work):
+  - **Desktop program / agents:** not applicable. Automation, task runners and
+    provider workers belong to MyPersonas.
+  - **Desktop and mobile website:** the live app is `mypersonas.online`, which
+    is in the MyPersonas repo. This repo ships only the redirect front door.
+  - **Docker / virtual appliance:** not applicable. The front door is five
+    static files, and the backend is hosted Supabase under the MyPersonas
+    migration authority. A self-host appliance would need that backend, which
+    AliaSpaces does not own.
+  - **PWA:** still depends on the redirect-vs-full-home decision below.
 
 ### 2026-09-26 — roadmap sweep
 
