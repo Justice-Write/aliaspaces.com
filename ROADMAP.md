@@ -60,6 +60,10 @@ No transition or provider action is authorized by this roadmap.
     migration authority. A self-host appliance would need that backend, which
     AliaSpaces does not own.
   - **PWA:** still depends on the redirect-vs-full-home decision below.
+- Android 0.3.1-social (code 4) built, unit-tested, signer-verified and installed
+  with `install -r` on the phone; it launches without a crash.
+- Next engineering slice (server-side blocks, content-report RPC, staff
+  queue) is briefed for Claude Code in `_ops/release-2026-10-16/`.
 
 ### 2026-09-26 — roadmap sweep
 
@@ -84,5 +88,6 @@ No transition or provider action is authorized by this roadmap.
 | Redirect vs. full AliaSpaces home | Owner decision; DNS, Pages allowlist, and deploy each need approval |
 | PWA / installable site | Depends on the decision above; needs a CSP and artifact-boundary change |
 | Branch protection and Pages reviewer | Owner to change GitHub repository settings |
-| Android bridge release acceptance | Fix implemented and locally tested; installation hold must be lifted and physical-device/two-account MFA tests completed |
+| Android bridge release acceptance | Code 4 installed and launching on the phone (2026-10-16, see `apps/social-mobile/EVIDENCE.md`); two unrelated signed-in MFA accounts still needed for the privacy matrix |
+| Push `main` to GitHub | Credential needs the `workflow` scope (`ci.yml` changed); then run `_ops/release-2026-10-16/push.cmd` |
 
