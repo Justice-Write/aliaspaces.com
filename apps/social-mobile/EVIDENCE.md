@@ -54,7 +54,7 @@ Read-only live check (no writes): anonymous `my_personas` is HTTP 401.
 | --- | --- |
 | Application id | `com.aliaspaces.social.local` |
 | Label | AliaSpaces |
-| Version | `0.3.0-social` (versionCode 3) |
+| Version | `0.3.1-social` (versionCode 4; was 0.3.0-social / 3) |
 | Default mode | Website `https://mypersonas.online/` |
 | Other modes | First-party Social, Local demo |
 | Internet permission | required for Website/Social |
@@ -69,3 +69,27 @@ website cookies. A differently signed APK installs beside this one.
 - Store listing or submission
 - Production content-report RPC or staff queue
 - Server-side block projections (client filter only)
+
+## Phone install (2026-10-16)
+
+Built on Windows from `main` f1ebc43 with `:app:testDebugUnitTest :app:assembleDebug`
+(BUILD SUCCESSFUL), then installed over USB with `adb install -r` on device
+R3CR20S9GZM. Script, transcript and summary: `_ops/release-2026-10-16/` in the
+parent GitHub folder.
+
+| Check | Result |
+| --- | --- |
+| Signer SHA-256 | `3679276f…d855`, same as the installed package, so data is kept |
+| Badging | `com.aliaspaces.social.local` code 4, `0.3.1-social`, target 36 |
+| APK SHA-256 | `59c6f9943a3b47b4977835afc565034182dc561b3203d61b540f5877060af760` |
+| Install | `Success` |
+| Launch | Process running (pid 24117); crash buffer empty for the package |
+| Screen | First-run guide "A place for your different spaces", 1 of 4 |
+
+The device already reported code 4 before this install: another session
+installed the same build minutes earlier. The guide appearing is expected:
+`AppGuide` shows it only while the persisted `portfolio_app_guide_v1/completed`
+flag is false, and `install -r` keeps SharedPreferences. It had never been
+completed on this phone. It does not mean data was reset. Still not
+verified: signed-in MFA and two-account privacy.
+
