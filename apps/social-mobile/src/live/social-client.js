@@ -459,6 +459,8 @@
       : createHttpTransport({ contract, fetchImpl: options.fetchImpl }));
     const storage = options.storage || (typeof localStorage !== "undefined" ? localStorage : memoryStorage());
     let session = options.session || null;
+    // Persisted or injected credentials are candidates until Auth verifies them.
+    let sessionVerified = false;
 
     function persist() {
       if (!session) {
@@ -486,13 +488,13 @@
 
     function status() {
       restore();
-      const signedIn = !!(session && session.access_token && session.user && session.user.id);
+      const signedIn = !!(sessionVerified && session && session.access_token && session.user && session.user.id);
       return {
         audience: contract.audience,
         mode,
         network: transport.kind,
         signedIn,
-        sessionState: signedIn ? "signed-in" : "signed-out",
+        sessionState: signedIn ? "signed-in" : (session && session.access_token ? "unverified" : "signed-out"),
         accountId: signedIn ? session.user.id : null,
         email: signedIn ? session.user.email || null : null,
       };
@@ -559,6 +561,7 @@
         refresh_token: next.refresh_token || null,
         user: { id: next.user.id, email: next.user.email || email },
       };
+      sessionVerified = true;
       persist();
       return { ok: true, session: clone(session), status: status() };
     }
@@ -581,6 +584,7 @@
           refresh_token: next.refresh_token || null,
           user: { id: next.user.id, email: next.user.email || email },
         };
+        sessionVerified = true;
         persist();
         return {
           ok: true,
@@ -602,6 +606,7 @@
         await wrap(() => transport.authLogout(session));
       }
       session = null;
+      sessionVerified = false;
       persist();
       return { ok: true, status: status() };
     }
@@ -609,7 +614,13 @@
     async function verifySession() {
       restore();
       if (!session) return { ok: true, status: status() };
-      const result = await wrap(() => transport.authUser(session));
+      const candidate = session;
+      sessionVerified = false;
+      const result = await wrap(() => transport.authUser(candidate));
+      // A late response must not restore a signed-out or replaced session.
+      if (session !== candidate) {
+        return { ok: false, error: new LiveError("unsigned", "Session changed during verification."), status: status() };
+      }
       const user = result.ok ? (result.data && (result.data.id ? result.data : result.data.user)) : null;
       if (!result.ok || !user || !user.id) {
         session = null;
@@ -620,7 +631,8 @@
           status: status(),
         };
       }
-      session.user = { id: user.id, email: user.email || session.user.email };
+      session.user = { id: user.id, email: user.email || (session.user && session.user.email) || null };
+      sessionVerified = true;
       persist();
       return { ok: true, status: status() };
     }
