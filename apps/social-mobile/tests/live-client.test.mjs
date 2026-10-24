@@ -283,3 +283,55 @@ test("live UI offers report on others' posts only and routes it through reportCo
   assert.doesNotMatch(source, /Content reports are not a first-party RPC yet/);
   assert.doesNotMatch(source, /staff_(list|resolve)_content_report/);
 });
+
+function testStorage() {
+  const entries = new Map();
+  return {
+    getItem: (key) => entries.get(key) ?? null,
+    setItem: (key, value) => entries.set(key, value),
+    removeItem: (key) => entries.delete(key),
+  };
+}
+
+test("restored credentials cannot claim identity or write until Auth verifies them", async () => {
+  const { factory } = await loadClient();
+  const storage = testStorage();
+  const transport = factory.createMemoryTransport();
+  const first = factory.createClient({ mode: "fixture", storage, transport });
+  await first.signInWithPassword({ email: "fixture.north@example.invalid", password: "fixture-only-not-production" });
+  const restored = factory.createClient({ mode: "fixture", storage, transport });
+  assert.equal(restored.status().signedIn, false);
+  assert.equal(restored.status().sessionState, "unverified");
+  assert.equal(restored.status().accountId, null);
+  const denied = await restored.savePost({ personaId: "persona_north", body: "Not yet verified" });
+  assert.equal(denied.error.code, "unsigned");
+  assert.equal((await restored.verifySession()).ok, true);
+  assert.equal(restored.status().signedIn, true);
+  assert.equal(restored.status().accountId, "acct_fixture_north");
+});
+
+test("forged saved identity is cleared when Auth rejects the token", async () => {
+  const { factory, contract } = await loadClient();
+  const storage = testStorage();
+  storage.setItem(contract.sessionStorageKey, JSON.stringify({ access_token: "forged", user: { id: "pretend-admin" } }));
+  const transport = factory.createMemoryTransport();
+  transport.authUser = async () => ({ error: new factory.LiveError("unsigned", "Token rejected by Auth") });
+  const client = factory.createClient({ mode: "fixture", storage, transport });
+  assert.equal(client.status().signedIn, false);
+  assert.equal((await client.verifySession()).ok, false);
+  assert.equal(client.status().sessionState, "signed-out");
+  assert.equal(storage.getItem(contract.sessionStorageKey), null);
+});
+
+test("late session verification cannot undo sign-out", async () => {
+  const { factory } = await loadClient();
+  let finishVerification;
+  const transport = factory.createMemoryTransport();
+  transport.authUser = () => new Promise((resolve) => { finishVerification = resolve; });
+  const client = factory.createClient({ mode: "fixture", transport, session: { access_token: "candidate", user: { id: "old-account" } } });
+  const checking = client.verifySession();
+  await client.signOut();
+  finishVerification({ data: { id: "old-account" } });
+  assert.equal((await checking).ok, false);
+  assert.equal(client.status().signedIn, false);
+});
