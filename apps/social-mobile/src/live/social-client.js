@@ -280,9 +280,15 @@
           return { data: { display_name: args.p_display_name } };
         }
         if (name === "report_content") {
-          // Same rules as migration 080: you can only report what you can see, never your own.
+          // Fixture subset of migration 080; not a substitute for live RLS/MFA tests.
           const kind = args.p_target_kind;
+          if (args.p_reporter_persona_id && !state.personas.some((item) => (
+            item.id === args.p_reporter_persona_id && item.owner === userId
+          ))) {
+            return { error: new LiveError("http", "Reporting persona must be your own") };
+          }
           let targetPersonaId = null;
+          let parentPersonaId = null;
           if (kind === "persona") targetPersonaId = args.p_target_id;
           if (kind === "post") {
             const post = state.posts.find((item) => item.id === args.p_target_id);
@@ -290,18 +296,26 @@
           }
           if (kind === "comment") {
             const comment = state.comments.find((item) => item.id === args.p_target_id);
-            targetPersonaId = comment ? comment.persona_id : null;
+            const post = comment && state.posts.find((item) => item.id === comment.post_id);
+            targetPersonaId = post ? comment.persona_id : null;
+            parentPersonaId = post ? post.persona_id : null;
           }
           const target = state.personas.find((item) => item.id === targetPersonaId);
           const hidden = new Set(hiddenPersonaIds(state, userId));
-          if (!target || hidden.has(target.id)) {
+          const visible = (id) => {
+            const persona = state.personas.find((item) => item.id === id);
+            return !!persona && !hidden.has(id) && (persona.owner === userId || (
+              persona.visibility === "public" && persona.publication_state === "published"
+            ));
+          };
+          if (!target || !visible(target.id) || (parentPersonaId && !visible(parentPersonaId))) {
             return { error: new LiveError("http", "Reportable content not found") };
           }
           if (target.owner === userId) {
             return { error: new LiveError("http", "You cannot report your own content") };
           }
           const existing = state.reports.find((item) => item.reporter === userId && item.target_kind === kind
-            && item.target_id === args.p_target_id && item.status === "open");
+            && item.target_id === args.p_target_id && ["open", "triaged"].includes(item.status));
           if (existing) return { data: existing.id };
           const report = {
             id: `rpt_${state.reports.length + 1}`,
@@ -365,9 +379,20 @@
   }
 
   function hiddenPersonaIds(state, accountId) {
-    return state.visibilityRules
-      .filter((item) => item.account_id === accountId && (item.kind === "block" || item.kind === "mute"))
-      .map((item) => item.other_persona_id);
+    const owned = new Set(state.personas.filter((item) => item.owner === accountId).map((item) => item.id));
+    const hidden = new Set();
+    for (const rule of state.visibilityRules) {
+      if (rule.account_id === accountId && ["block", "mute"].includes(rule.kind)) {
+        hidden.add(rule.other_persona_id);
+      }
+      // Reverse blocks hide every persona belonging to the blocking account.
+      if (rule.kind === "block" && owned.has(rule.other_persona_id) && rule.account_id !== accountId) {
+        for (const persona of state.personas) {
+          if (persona.owner === rule.account_id) hidden.add(persona.id);
+        }
+      }
+    }
+    return Array.from(hidden);
   }
 
   function createHttpTransport(options = {}) {
