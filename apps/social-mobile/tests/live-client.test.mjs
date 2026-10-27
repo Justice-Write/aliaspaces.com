@@ -261,6 +261,7 @@ test("reports require a session and say plainly when the server has not enabled 
       async rpc() {
         const error = new factory.LiveError("http", "Could not find the function public.report_content");
         error.status = 404;
+        error.body = { code: "PGRST202" };
         return { error };
       },
     }),
@@ -282,4 +283,151 @@ test("live UI offers report on others' posts only and routes it through reportCo
   assert.match(source, /client\.reportContent\(/);
   assert.doesNotMatch(source, /Content reports are not a first-party RPC yet/);
   assert.doesNotMatch(source, /staff_(list|resolve)_content_report/);
+});
+
+function testStorage() {
+  const entries = new Map();
+  return {
+    getItem: (key) => entries.get(key) ?? null,
+    setItem: (key, value) => entries.set(key, value),
+    removeItem: (key) => entries.delete(key),
+  };
+}
+
+test("restored credentials cannot claim identity or write until Auth verifies them", async () => {
+  const { factory } = await loadClient();
+  const storage = testStorage();
+  const transport = factory.createMemoryTransport();
+  const first = factory.createClient({ mode: "fixture", storage, transport });
+  await first.signInWithPassword({ email: "fixture.north@example.invalid", password: "fixture-only-not-production" });
+  const restored = factory.createClient({ mode: "fixture", storage, transport });
+  assert.equal(restored.status().signedIn, false);
+  assert.equal(restored.status().sessionState, "unverified");
+  assert.equal(restored.status().accountId, null);
+  const denied = await restored.savePost({ personaId: "persona_north", body: "Not yet verified" });
+  assert.equal(denied.error.code, "unsigned");
+  assert.equal((await restored.verifySession()).ok, true);
+  assert.equal(restored.status().signedIn, true);
+  assert.equal(restored.status().accountId, "acct_fixture_north");
+});
+
+test("forged saved identity is cleared when Auth rejects the token", async () => {
+  const { factory, contract } = await loadClient();
+  const storage = testStorage();
+  storage.setItem(contract.sessionStorageKey, JSON.stringify({ access_token: "forged", user: { id: "pretend-admin" } }));
+  const transport = factory.createMemoryTransport();
+  transport.authUser = async () => ({ error: new factory.LiveError("unsigned", "Token rejected by Auth") });
+  const client = factory.createClient({ mode: "fixture", storage, transport });
+  assert.equal(client.status().signedIn, false);
+  assert.equal((await client.verifySession()).ok, false);
+  assert.equal(client.status().sessionState, "signed-out");
+  assert.equal(storage.getItem(contract.sessionStorageKey), null);
+});
+
+test("late session verification cannot undo sign-out", async () => {
+  const { factory } = await loadClient();
+  let finishVerification;
+  const transport = factory.createMemoryTransport();
+  transport.authUser = () => new Promise((resolve) => { finishVerification = resolve; });
+  const client = factory.createClient({ mode: "fixture", transport, session: { access_token: "candidate", user: { id: "old-account" } } });
+  const checking = client.verifySession();
+  await client.signOut();
+  finishVerification({ data: { id: "old-account" } });
+  assert.equal((await checking).ok, false);
+  assert.equal(client.status().signedIn, false);
+});
+
+
+test("sign-out immediately blocks private access while network logout is pending", async () => {
+  const { factory } = await loadClient();
+  let finishLogout;
+  const transport = factory.createMemoryTransport();
+  transport.authLogout = () => new Promise((resolve) => { finishLogout = resolve; });
+  const storage = testStorage();
+  const client = factory.createClient({ mode: "fixture", transport, storage });
+  await client.signInWithPassword({ email: "fixture.north@example.invalid", password: "fixture-only-not-production" });
+  const loggingOut = client.signOut();
+  assert.equal(client.status().signedIn, false);
+  assert.equal(storage.getItem(client.CONTRACT.sessionStorageKey), null);
+  assert.equal((await client.myPersonas()).error.code, "unsigned");
+  assert.equal((await client.reportContent({ targetKind: "post", targetId: "post_south", reason: "spam" })).error.code, "unsigned");
+  finishLogout({ ok: true });
+  await loggingOut;
+});
+
+test("report success requires a receipt and preserves server error meaning", async () => {
+  const { factory } = await loadClient();
+  let response;
+  const transport = factory.createMemoryTransport();
+  transport.rpc = async () => response;
+  const client = factory.createClient({ mode: "fixture", transport });
+  await client.signInWithPassword({ email: "fixture.north@example.invalid", password: "fixture-only-not-production" });
+  const input = { targetKind: "post", targetId: "post_south", reason: "spam" };
+  for (const data of [null, "", "  ", {}, [], false]) {
+    response = { data };
+    const result = await client.reportContent(input);
+    assert.equal(result.ok, false);
+    assert.equal(result.error.code, "invalid-report-receipt");
+  }
+  const missingTarget = new factory.LiveError("http", "Reportable content not found");
+  missingTarget.status = 404;
+  missingTarget.body = { code: "P0001" };
+  response = { error: missingTarget };
+  assert.equal((await client.reportContent(input)).error, missingTarget);
+  response = { data: "00000000-0000-4000-8000-000000000001" };
+  const confirmed = await client.reportContent(input);
+  assert.equal(confirmed.ok, true);
+  assert.equal(confirmed.data.queued, true);
+});
+
+
+test("fixture reports reject private, unpublished, muted and reverse-blocked targets uniformly", async () => {
+  const { factory } = await loadClient();
+  for (const scenario of ["private", "unpublished", "mute", "reverse-block"]) {
+    const transport = factory.createMemoryTransport();
+    const south = transport._state.personas.find((item) => item.id === "persona_south");
+    if (scenario === "private") south.visibility = "private";
+    if (scenario === "unpublished") south.publication_state = "draft";
+    if (scenario === "mute") transport._state.visibilityRules.push({ account_id: "acct_fixture_north", other_persona_id: south.id, kind: "mute" });
+    if (scenario === "reverse-block") transport._state.visibilityRules.push({ account_id: south.owner, other_persona_id: "persona_north", kind: "block" });
+    const client = factory.createClient({ mode: "fixture", transport });
+    await client.signInWithPassword({ email: "fixture.north@example.invalid", password: "fixture-only-not-production" });
+    const hidden = await client.reportContent({ targetKind: "persona", targetId: south.id, reason: "spam" });
+    const missing = await client.reportContent({ targetKind: "persona", targetId: "missing", reason: "spam" });
+    assert.equal(hidden.ok, false, scenario);
+    assert.equal(hidden.error.message, missing.error.message, scenario);
+    assert.equal(transport._state.reports.length, 0);
+  }
+});
+
+test("fixture comment reports require a visible parent post and an owned reporter persona", async () => {
+  const { factory } = await loadClient();
+  const transport = factory.createMemoryTransport();
+  transport._state.personas.push({ id: "parent", owner: "acct_parent", visibility: "private", publication_state: "published" });
+  transport._state.posts.push({ id: "hidden_parent_post", persona_id: "parent" });
+  transport._state.comments.push({ id: "child", persona_id: "persona_south", post_id: "hidden_parent_post" });
+  const client = factory.createClient({ mode: "fixture", transport });
+  await client.signInWithPassword({ email: "fixture.north@example.invalid", password: "fixture-only-not-production" });
+  const hidden = await client.reportContent({ targetKind: "comment", targetId: "child", reason: "spam" });
+  assert.equal(hidden.ok, false);
+  assert.equal(hidden.error.message, "Reportable content not found");
+  const forged = await client.reportContent({ targetKind: "post", targetId: "post_south", reporterPersonaId: "persona_south", reason: "spam" });
+  assert.equal(forged.ok, false);
+  assert.equal(forged.error.message, "Reporting persona must be your own");
+  assert.equal(transport._state.reports.length, 0);
+});
+
+test("fixture reports deduplicate triaged reports and allow a new report after resolution", async () => {
+  const { factory } = await loadClient();
+  const transport = factory.createMemoryTransport();
+  const client = factory.createClient({ mode: "fixture", transport });
+  await client.signInWithPassword({ email: "fixture.north@example.invalid", password: "fixture-only-not-production" });
+  const input = { targetKind: "post", targetId: "post_south", reason: "spam" };
+  const first = await client.reportContent(input);
+  transport._state.reports[0].status = "triaged";
+  assert.equal((await client.reportContent(input)).data.reportId, first.data.reportId);
+  assert.equal(transport._state.reports.length, 1);
+  transport._state.reports[0].status = "dismissed";
+  assert.notEqual((await client.reportContent(input)).data.reportId, first.data.reportId);
+  assert.equal(transport._state.reports.length, 2);
 });
