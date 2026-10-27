@@ -602,12 +602,14 @@
     }
 
     async function signOut() {
-      if (session) {
-        await wrap(() => transport.authLogout(session));
-      }
+      // Revoke local access immediately, even if the logout request is slow/offline.
+      const previous = session;
       session = null;
       sessionVerified = false;
       persist();
+      if (previous) {
+        await wrap(() => transport.authLogout(previous));
+      }
       return { ok: true, status: status() };
     }
 
@@ -821,11 +823,15 @@
           p_details: details,
           p_reporter_persona_id: input.reporterPersonaId || null,
         }, { write: true });
-        if (!result.ok && result.error && result.error.status === 404) {
+        if (!result.ok && result.error && result.error.status === 404 &&
+            result.error.body && result.error.body.code === "PGRST202") {
           // PostgREST answers 404 when the function is not deployed yet (migration 080 not applied).
           return { ok: false, error: new LiveError("reports-not-enabled", "Reporting is not enabled on the server yet.") };
         }
         if (!result.ok) return result;
+        if (typeof result.data !== "string" || !result.data.trim()) {
+          return { ok: false, error: new LiveError("invalid-report-receipt", "The server did not confirm a report receipt. Report submission could not be confirmed.") };
+        }
         return { ok: true, data: { reportId: result.data, queued: true },
           message: "Report sent to the staff review queue. It does not remove anything by itself." };
       },
