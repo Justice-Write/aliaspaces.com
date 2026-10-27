@@ -261,6 +261,7 @@ test("reports require a session and say plainly when the server has not enabled 
       async rpc() {
         const error = new factory.LiveError("http", "Could not find the function public.report_content");
         error.status = 404;
+        error.body = { code: "PGRST202" };
         return { error };
       },
     }),
@@ -334,4 +335,47 @@ test("late session verification cannot undo sign-out", async () => {
   finishVerification({ data: { id: "old-account" } });
   assert.equal((await checking).ok, false);
   assert.equal(client.status().signedIn, false);
+});
+
+
+test("sign-out immediately blocks private access while network logout is pending", async () => {
+  const { factory } = await loadClient();
+  let finishLogout;
+  const transport = factory.createMemoryTransport();
+  transport.authLogout = () => new Promise((resolve) => { finishLogout = resolve; });
+  const storage = testStorage();
+  const client = factory.createClient({ mode: "fixture", transport, storage });
+  await client.signInWithPassword({ email: "fixture.north@example.invalid", password: "fixture-only-not-production" });
+  const loggingOut = client.signOut();
+  assert.equal(client.status().signedIn, false);
+  assert.equal(storage.getItem(client.CONTRACT.sessionStorageKey), null);
+  assert.equal((await client.myPersonas()).error.code, "unsigned");
+  assert.equal((await client.reportContent({ targetKind: "post", targetId: "post_south", reason: "spam" })).error.code, "unsigned");
+  finishLogout({ ok: true });
+  await loggingOut;
+});
+
+test("report success requires a receipt and preserves server error meaning", async () => {
+  const { factory } = await loadClient();
+  let response;
+  const transport = factory.createMemoryTransport();
+  transport.rpc = async () => response;
+  const client = factory.createClient({ mode: "fixture", transport });
+  await client.signInWithPassword({ email: "fixture.north@example.invalid", password: "fixture-only-not-production" });
+  const input = { targetKind: "post", targetId: "post_south", reason: "spam" };
+  for (const data of [null, "", "  ", {}, [], false]) {
+    response = { data };
+    const result = await client.reportContent(input);
+    assert.equal(result.ok, false);
+    assert.equal(result.error.code, "invalid-report-receipt");
+  }
+  const missingTarget = new factory.LiveError("http", "Reportable content not found");
+  missingTarget.status = 404;
+  missingTarget.body = { code: "P0001" };
+  response = { error: missingTarget };
+  assert.equal((await client.reportContent(input)).error, missingTarget);
+  response = { data: "00000000-0000-4000-8000-000000000001" };
+  const confirmed = await client.reportContent(input);
+  assert.equal(confirmed.ok, true);
+  assert.equal(confirmed.data.queued, true);
 });
