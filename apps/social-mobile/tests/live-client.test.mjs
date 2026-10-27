@@ -379,3 +379,55 @@ test("report success requires a receipt and preserves server error meaning", asy
   assert.equal(confirmed.ok, true);
   assert.equal(confirmed.data.queued, true);
 });
+
+
+test("fixture reports reject private, unpublished, muted and reverse-blocked targets uniformly", async () => {
+  const { factory } = await loadClient();
+  for (const scenario of ["private", "unpublished", "mute", "reverse-block"]) {
+    const transport = factory.createMemoryTransport();
+    const south = transport._state.personas.find((item) => item.id === "persona_south");
+    if (scenario === "private") south.visibility = "private";
+    if (scenario === "unpublished") south.publication_state = "draft";
+    if (scenario === "mute") transport._state.visibilityRules.push({ account_id: "acct_fixture_north", other_persona_id: south.id, kind: "mute" });
+    if (scenario === "reverse-block") transport._state.visibilityRules.push({ account_id: south.owner, other_persona_id: "persona_north", kind: "block" });
+    const client = factory.createClient({ mode: "fixture", transport });
+    await client.signInWithPassword({ email: "fixture.north@example.invalid", password: "fixture-only-not-production" });
+    const hidden = await client.reportContent({ targetKind: "persona", targetId: south.id, reason: "spam" });
+    const missing = await client.reportContent({ targetKind: "persona", targetId: "missing", reason: "spam" });
+    assert.equal(hidden.ok, false, scenario);
+    assert.equal(hidden.error.message, missing.error.message, scenario);
+    assert.equal(transport._state.reports.length, 0);
+  }
+});
+
+test("fixture comment reports require a visible parent post and an owned reporter persona", async () => {
+  const { factory } = await loadClient();
+  const transport = factory.createMemoryTransport();
+  transport._state.personas.push({ id: "parent", owner: "acct_parent", visibility: "private", publication_state: "published" });
+  transport._state.posts.push({ id: "hidden_parent_post", persona_id: "parent" });
+  transport._state.comments.push({ id: "child", persona_id: "persona_south", post_id: "hidden_parent_post" });
+  const client = factory.createClient({ mode: "fixture", transport });
+  await client.signInWithPassword({ email: "fixture.north@example.invalid", password: "fixture-only-not-production" });
+  const hidden = await client.reportContent({ targetKind: "comment", targetId: "child", reason: "spam" });
+  assert.equal(hidden.ok, false);
+  assert.equal(hidden.error.message, "Reportable content not found");
+  const forged = await client.reportContent({ targetKind: "post", targetId: "post_south", reporterPersonaId: "persona_south", reason: "spam" });
+  assert.equal(forged.ok, false);
+  assert.equal(forged.error.message, "Reporting persona must be your own");
+  assert.equal(transport._state.reports.length, 0);
+});
+
+test("fixture reports deduplicate triaged reports and allow a new report after resolution", async () => {
+  const { factory } = await loadClient();
+  const transport = factory.createMemoryTransport();
+  const client = factory.createClient({ mode: "fixture", transport });
+  await client.signInWithPassword({ email: "fixture.north@example.invalid", password: "fixture-only-not-production" });
+  const input = { targetKind: "post", targetId: "post_south", reason: "spam" };
+  const first = await client.reportContent(input);
+  transport._state.reports[0].status = "triaged";
+  assert.equal((await client.reportContent(input)).data.reportId, first.data.reportId);
+  assert.equal(transport._state.reports.length, 1);
+  transport._state.reports[0].status = "dismissed";
+  assert.notEqual((await client.reportContent(input)).data.reportId, first.data.reportId);
+  assert.equal(transport._state.reports.length, 2);
+});
