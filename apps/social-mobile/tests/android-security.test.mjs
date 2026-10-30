@@ -9,12 +9,14 @@ test('native file bridge is origin and main-frame restricted, with no legacy glo
   const source = await read('android/app/src/main/java/com/aliaspaces/social/local/MainActivity.kt');
   assert.doesNotMatch(source, /addJavascriptInterface|@JavascriptInterface/);
   assert.match(source, /WebViewCompat.addWebMessageListener\(webView, "AliaSpacesAndroid", setOf\("https:\/\/\$ASSET_HOST"\)\)/);
-  assert.match(source, /!isMainFrame.*!isLocalDocument\(\)/);
+  assert.match(source, /!isMainFrame.*!isLocalExportDocument\(\)/);
   assert.match(source, /if \(appMode == MODE_LOCAL\) installLocalBridge\(\)/);
   assert.match(source, /removeWebMessageListener/);
-  assert.match(source, /pendingDocumentEpoch != documentEpoch \|\| !isLocalDocument\(\)/);
+  assert.match(source, /pendingDocumentEpoch != documentEpoch \|\| pendingFileUrl != webView.url \|\| !isLocalExportDocument\(\)/);
   assert.match(source, /pendingFileUrl == webView.url/);
-  assert.doesNotMatch(source, /type = "\*\/\*"|params\?\.createIntent/);
+  assert.doesNotMatch(source, /params\?\.createIntent/);
+  assert.match(source, /val validMime = mime != null && allowed.any/);
+  assert.match(source, /REQUEST_IMPORT && isLocalDocument\(\)/);
   assert.match(source, /bytes.size > MAX_JSON_BYTES/);
 });
 

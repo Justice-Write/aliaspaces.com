@@ -13,8 +13,8 @@ android {
         applicationId "com.aliaspaces.social.local"
         minSdk 24
         targetSdk 36
-        versionCode 5
-        versionName "0.3.2-social"
+        versionCode 7
+        versionName "0.4.1-akasha"
     }
 
     signingConfigs {
@@ -35,7 +35,15 @@ android {
             signingConfig signingConfigs.localDebug
             minifyEnabled false
         }
+        acceptance {
+            initWith release
+            applicationIdSuffix ".acceptance"
+            matchingFallbacks = ["release"]
+            debuggable true
+        }
     }
+
+    buildFeatures { buildConfig true }
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
@@ -55,10 +63,12 @@ dependencies {
     implementation "androidx.browser:browser:1.8.0"
 }
 
-tasks.register("copyWebAssets", Copy) {
+tasks.register("copyWebAssets", Sync) {
     from("${rootProject.projectDir}/..") {
         include "index.html"
         include "live.html"
+        include "pantry.html"
+        include "akasha.html"
         include "error.html"
         include "src/**"
     }

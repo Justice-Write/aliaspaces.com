@@ -1,5 +1,29 @@
 # AliaSpaces roadmap
 
+## Current checkpoint — 29 October 2026
+
+- [x] Combine local Akasha capture/history imports with PR #3 session/report
+      safety fixes in an isolated release branch.
+- [x] Native Akasha history-file picker policy and JSON export-save dispatch;
+      keep social-demo native import restricted to its original page.
+- [x] Windows release builder and exact source-hashed APK payload verifier.
+- [x] 48/48 Node tests, 3/3 Android navigation tests, vital lint/release build,
+      both synthetic Akasha browser smoke flows.
+- [x] Update Samsung SM-N986U1 from code 5 to code 6 in place after a private
+      app-data backup and matching-certificate check; verify version and local UI.
+- [x] Document related projects, chat evidence and personal-data separation.
+- [x] Complete physical Android picker/save/reload/merge restore in a dedicated
+      device session; verify private production baseline before/after the code-7
+      in-place upgrade. See [30 October acceptance](PHONE-ACCEPTANCE-2026-10-30.md).
+- [ ] Verify genuine history-only exports, real-account privacy/MFA and
+      moderation deployment under the MyPersonas authority.
+- [ ] History-specific provider consent/backend transfers, AI reflection and
+      user-controlled feed filters remain future work.
+
+See [release details](RELEASE-2026-10-29.md) and
+[data/package boundaries](DATA-AND-PACKAGING.md). Older milestone paragraphs
+below are historical checkpoints, not current cloud/device limitations.
+
 This repository is the AliaSpaces product home. `main` still publishes only
 the four-file HTTPS front door that redirects `aliaspaces.com` to
 `https://mypersonas.online`. Application work lives in separate directories
@@ -63,8 +87,9 @@ owner-gated Auth dashboard, production SQL, or a real phone.
       claimed only after Auth returns a user id and access token.
 - [x] `identity-projection` rows (`account_id`, `persona_id`, `handle`,
       `lifecycle_state`) from `my_personas`.
-- [x] Client-side block/mute filter. Server-side block projections and a
-      staff report queue still need owner-gated production work.
+- [x] Client-side block/mute filter. Server-side symmetric blocking is recorded as live in migration 051.
+      Content-report client support landed October 16; migration 080 deployment
+      and staff queue acceptance still require MyPersonas-authority verification.
 - [x] Posts submitted through `save_persona_post` stay review-gated and
       are not described as auto-published.
 - [x] Fixture transport for tests/smoke never writes to production.
@@ -87,8 +112,9 @@ physical phone and not the owner's local phone-test builds):
 
 1. **Milestone 2 remainder — production authorization and moderation**
    Concrete contract: [docs/MOBILE-MILESTONE-2.md](MOBILE-MILESTONE-2.md).
-   Still needs server-side block projections, a content-report RPC, and a
-   staff queue. Those are production migrations, not client work.
+   Server-side blocking is recorded in MyPersonas migration 051. The client
+   supports content reports; verify migration 080 deployment and staff queue
+   behavior under the MyPersonas production authority.
 2. **Public read-only persona page** consuming a versioned public projection
    with opaque media identifiers (from the extraction plan on
    `split/social-platform-20260824`). Putting that on `aliaspaces.com`
@@ -123,3 +149,15 @@ Android debug build and automated checks passed; signature verified, installed i
 Remaining: Production authorization/moderation integration and two-account privacy, sign-in/MFA and real-device release verification.
 
 Portfolio evidence: `mobile-publishing-2026-09-20/design-apks/phone-verification.json`, app build log, and `DESIGN-ROADMAP-STATUS.md`. Older environment limitations above are historical; the phone is now connected.
+
+## 2026-10-23 — session verification continuation
+
+- Fixed the first-party client's restored-session state: saved/injected tokens
+  remain `unverified` until Auth verifies them. Owner-only RPCs and writes stay
+  blocked, and cached identity is not displayed as authenticated.
+- Added regression coverage for valid restoration, rejected forged credentials,
+  and a delayed verification response arriving after sign-out.
+- Verified: `npm test` — 31/31 pass, including the two read-only network tests;
+  product boundary check passes for 26 mobile source files.
+- No APK was rebuilt or installed during this checkpoint.
+- See [checkpoint and next actions](ROADMAP-CHECKPOINT-2026-10-23.md).

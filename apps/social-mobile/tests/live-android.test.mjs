@@ -23,7 +23,7 @@ test("Android shell has website, first-party social, and local demo modes", asyn
   assert.match(activity, /CustomTabsIntent/);
   assert.match(activity, /lastMode/);
   assert.match(activity, /MODE_SOCIAL/);
-  assert.match(gradle, /versionName "0\.3\.\d+-social"/);
+  assert.match(gradle, /versionName "0\.4\.\d+-akasha"/);
   assert.match(gradle, /versionCode \d+/);
   assert.match(gradle, /live\.html/);
   assert.doesNotMatch(activity, /service_role|SUPABASE_SERVICE_ROLE/);

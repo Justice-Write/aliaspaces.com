@@ -2,12 +2,14 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <application android:enableOnBackInvokedCallback="false"
-        android:allowBackup="true"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
        
        
         android:supportsRtl="true"
         android:theme="@style/Theme.AliaSpacesLocal"
-        android:usesCleartextTraffic="false" android:icon="@mipmap/portfolio_launcher" android:roundIcon="@mipmap/portfolio_launcher" android:label="AliaSpaces">
+        android:usesCleartextTraffic="false" android:icon="@mipmap/portfolio_launcher" android:roundIcon="@mipmap/portfolio_launcher" android:label="@string/app_name">
         <activity
             android:name=".MainActivity"
             android:exported="true"

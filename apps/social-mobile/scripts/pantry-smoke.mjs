@@ -1,0 +1,88 @@
+import assert from 'node:assert/strict';
+import { createServer } from 'node:http';
+import { readFile, mkdir } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+const { chromium } = await import(process.env.PLAYWRIGHT_MODULE ? pathToFileURL(process.env.PLAYWRIGHT_MODULE).href : 'playwright');
+const root = fileURLToPath(new URL('../', import.meta.url));
+const server = createServer(async (req, res) => {
+  const file = path.resolve(root, '.' + new URL(req.url, 'http://localhost').pathname);
+  if (!file.startsWith(root)) return res.writeHead(403).end();
+  try { const body = await readFile(file); res.writeHead(200, { 'content-type': ({ '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css' })[path.extname(file)] || 'text/plain' }).end(body); }
+  catch { res.writeHead(404).end(); }
+});
+await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+let browser;
+try {
+  browser = await chromium.launch({ headless: true, ...(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}) });
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const errors = []; page.on('pageerror', error => errors.push(error.message));
+  await page.goto(`http://127.0.0.1:${server.address().port}/pantry.html`);
+  await page.waitForURL('**/akasha.html');
+  assert.equal(await page.getByRole('heading', { level: 1 }).innerText(), 'Akasha');
+  await page.locator('#custom').fill('Astronomy');
+  await page.getByRole('button', { name: 'Save categories', exact: true }).click();
+  await page.locator('#content').fill('recipe skit\nunknown <script>alert(1)</script>\nAstronomy');
+  await page.getByRole('button', { name: 'Add every item to inbox' }).click();
+  assert.equal(await page.locator('article').count(), 3);
+  assert.match(await page.locator('article').nth(1).innerText(), /Unclassified/);
+  const first = page.locator('article').first();
+  await first.locator('input').fill('Dinner, Creator skit ideas');
+  await first.getByRole('button', { name: 'Save to Akashic records' }).click();
+  await page.locator('article').nth(1).getByRole('button', { name: 'Reject', exact: true }).click();
+  await page.locator('#collection').selectOption('approved');
+  await page.locator('#search').fill('dinner');
+  assert.equal(await page.locator('article').count(), 1);
+  await page.reload();
+  assert.equal(await page.locator('article').count(), 3);
+  assert.match(await page.locator('#count').innerText(), /1 saved in Akasha/);
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export Akashic records JSON' }).click();
+  const download = await downloadPromise;
+  const backup = await readFile(await download.path(), 'utf8');
+  await page.locator('#import').setInputFiles({ name: 'backup.json', mimeType: 'application/json', buffer: Buffer.from(backup) });
+  await page.getByText('Backup merged.', { exact: false }).waitFor();
+  assert.equal(await page.locator('article').count(), 3);
+  await page.locator('#collection').selectOption('rejected');
+  await page.getByRole('button', { name: 'Return to inbox' }).click();
+  await page.locator('#collection').selectOption('pending');
+  assert.equal(await page.locator('article').count(), 2);
+  await page.locator('#filter-day').fill('2020-01-01');
+  assert.equal(await page.locator('article').count(), 0);
+  await page.locator('#filter-day').fill('');
+  assert.equal(await page.locator('article').count(), 2);
+  const key = 'aliaspaces.pantry.local.v1';
+  const before = await page.evaluate(key => localStorage.getItem(key), key);
+  for (const raw of ['{broken', JSON.stringify({ version: 1, categories: [], items: [{ id: 'invalid' }] })]) {
+    await page.locator('#import').setInputFiles({ name: 'invalid.json', mimeType: 'application/json', buffer: Buffer.from(raw) });
+    await page.waitForFunction(() => document.getElementById('import').value === '');
+    assert.equal(await page.evaluate(key => localStorage.getItem(key), key), before);
+    assert.equal(await page.locator('article').count(), 2);
+  }
+  await page.evaluate(() => { Storage.prototype.setItem = () => { throw Error('Simulated quota failure'); }; });
+  await page.locator('article').first().getByRole('button', { name: 'Save to Akashic records' }).click();
+  assert.match(await page.locator('#message').innerText(), /quota failure/);
+  assert.equal(await page.evaluate(key => localStorage.getItem(key), key), before);
+  assert.equal(await page.locator('article').count(), 2);
+  await page.reload();
+  const concurrent = JSON.parse(before); concurrent.categories.push('Other tab category');
+  await page.evaluate(({ key, raw }) => localStorage.setItem(key, raw), { key, raw: JSON.stringify(concurrent) });
+  await page.locator('article').first().getByRole('button', { name: 'Save tags', exact: true }).click();
+  assert.match(await page.locator('#message').innerText(), /changed in another tab/);
+  assert.equal(await page.evaluate(key => JSON.parse(localStorage.getItem(key)).categories.at(-1), key), 'Other tab category');
+  await page.reload();
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+  let extraDownloads = 0;
+  page.on('download', () => extraDownloads++);
+  await page.evaluate(() => { window.AliaSpacesAndroid = { postMessage(raw) { window.nativeBackupRequest = JSON.parse(raw); } }; });
+  await page.getByRole('button', { name: 'Export Akashic records JSON' }).click();
+  const nativeRequest = await page.evaluate(() => window.nativeBackupRequest);
+  assert.equal(nativeRequest.action, 'export');
+  assert.deepEqual(JSON.parse(nativeRequest.payload), JSON.parse(await page.evaluate(key => localStorage.getItem(key), key)));
+  assert.match(await page.locator('#message').innerText(), /Choose where to save/);
+  assert.equal(extraDownloads, 0, 'Native export must not also start a browser download');
+  await mkdir('evidence', { recursive: true });
+  await page.screenshot({ path: 'evidence/akasha-mobile.png', fullPage: true });
+  assert.deepEqual(errors, []);
+  console.log('Akasha browser smoke passed: setup, custom categories, capture, unclassified/XSS text, tags, approve/reject/undo, search, persistence, export/merge, malformed imports, quota failure, cross-tab conflict, date filters, mobile layout, native backup dispatch without a duplicate browser download.');
+} finally { await browser?.close(); await new Promise(resolve => server.close(resolve)); }

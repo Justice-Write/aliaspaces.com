@@ -28,3 +28,7 @@ apps/social-mobile/dist/*.apk
 .env
 .env.*
 phone-cleanup-backup/
+
+# Generated release receipts and synthetic browser screenshots stay outside source.
+apps/social-mobile/dist/
+/evidence/

@@ -54,6 +54,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         com.portfolio.guide.WindowSafety.apply(this)
         webView = findViewById(R.id.webView)
+        if (BuildConfig.DEBUG) WebView.setWebContentsDebuggingEnabled(true)
         modeLabel = findViewById(R.id.modeLabel)
         offlineBanner = findViewById(R.id.offlineBanner)
         liveButton = findViewById(R.id.liveButton)
@@ -140,7 +141,7 @@ class MainActivity : AppCompatActivity() {
                 pendingDocumentEpoch = documentEpoch
                 val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                     addCategory(Intent.CATEGORY_OPENABLE)
-                    type = mimeTypes.first()
+                    type = if (mimeTypes.size == 1) mimeTypes.first() else "*/*"
                     putExtra(Intent.EXTRA_MIME_TYPES, mimeTypes.toTypedArray())
                 }
                 try { startActivityForResult(intent, REQUEST_FILE) }
@@ -292,20 +293,24 @@ class MainActivity : AppCompatActivity() {
             fileCallback = null
             return
         }
-        if (pendingDocumentEpoch != documentEpoch || !isLocalDocument()) { pendingExport = null; return }
+        if (pendingDocumentEpoch != documentEpoch || pendingFileUrl != webView.url || !isLocalExportDocument()) { pendingExport = null; return }
         if (resultCode != Activity.RESULT_OK || data?.data == null) { pendingExport = null; return }
         val uri = data.data ?: return
         if (requestCode == REQUEST_EXPORT) writeExport(uri)
-        if (requestCode == REQUEST_IMPORT) readImport(uri)
+        if (requestCode == REQUEST_IMPORT && isLocalDocument()) readImport(uri)
     }
 
     private fun writeExport(uri: Uri) {
         val payload = pendingExport ?: return
-        contentResolver.openOutputStream(uri)?.use { stream ->
-            stream.write(payload.toByteArray(StandardCharsets.UTF_8))
+        try {
+            val stream = contentResolver.openOutputStream(uri) ?: throw java.io.IOException("No output stream")
+            stream.use { it.write(payload.toByteArray(StandardCharsets.UTF_8)) }
+            Toast.makeText(this, "Local JSON backup saved. Keep it private; it is not an online backup.", Toast.LENGTH_LONG).show()
+        } catch (_: Exception) {
+            Toast.makeText(this, "Backup could not be saved. Your device records are unchanged.", Toast.LENGTH_LONG).show()
+        } finally {
+            pendingExport = null
         }
-        pendingExport = null
-        Toast.makeText(this, "Local demo export saved. Not an online backup.", Toast.LENGTH_LONG).show()
     }
 
     private fun readImport(uri: Uri) {
@@ -334,32 +339,40 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun isLocalDocument() = appMode == MODE_LOCAL && NavigationPolicy.isLocalDocument(webView.url ?: "")
+    private fun isLocalExportDocument() = appMode == MODE_LOCAL &&
+        (NavigationPolicy.isLocalDocument(webView.url ?: "") || NavigationPolicy.isAkashaDocument(webView.url ?: ""))
 
     private fun installLocalBridge() {
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) return
         WebViewCompat.addWebMessageListener(webView, "AliaSpacesAndroid", setOf("https://$ASSET_HOST")) {
                 _, message, sourceOrigin, isMainFrame, _ ->
-            if (!isMainFrame || sourceOrigin.toString() != "https://$ASSET_HOST" || !isLocalDocument()) return@addWebMessageListener
+            if (!isMainFrame || sourceOrigin.toString() != "https://$ASSET_HOST" || !isLocalExportDocument()) return@addWebMessageListener
             val data = message.data ?: return@addWebMessageListener
-            if (data.toByteArray(StandardCharsets.UTF_8).size > MAX_JSON_BYTES + 1024) return@addWebMessageListener
+            if (data.toByteArray(StandardCharsets.UTF_8).size > MAX_EXPORT_BYTES + 1024) return@addWebMessageListener
             val request = try { org.json.JSONObject(data) } catch (_: Exception) { return@addWebMessageListener }
             when (request.optString("action")) {
                 "export" -> {
                     val payload = request.optString("payload")
-                    if (payload.toByteArray(StandardCharsets.UTF_8).size > MAX_JSON_BYTES) return@addWebMessageListener
+                    if (payload.toByteArray(StandardCharsets.UTF_8).size > MAX_EXPORT_BYTES) {
+                        Toast.makeText(this, "Backup exceeds the 10 MB native export limit.", Toast.LENGTH_LONG).show()
+                        return@addWebMessageListener
+                    }
                     cancelPendingDocuments()
                     pendingExport = payload
+                    pendingFileUrl = webView.url
                     pendingDocumentEpoch = documentEpoch
                     val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
                         addCategory(Intent.CATEGORY_OPENABLE)
                         type = "application/json"
-                        putExtra(Intent.EXTRA_TITLE, "aliaspaces-local-demo.json")
+                        putExtra(Intent.EXTRA_TITLE, if (NavigationPolicy.isAkashaDocument(webView.url ?: "")) "aliaspaces-akashic-records-local.json" else "aliaspaces-local-demo.json")
                     }
                     try { startActivityForResult(intent, REQUEST_EXPORT) }
                     catch (_: android.content.ActivityNotFoundException) { cancelPendingDocuments() }
                 }
                 "import" -> {
+                    if (!isLocalDocument()) return@addWebMessageListener
                     cancelPendingDocuments()
+                    pendingFileUrl = webView.url
                     pendingDocumentEpoch = documentEpoch
                     val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                         addCategory(Intent.CATEGORY_OPENABLE)
@@ -391,6 +404,7 @@ class MainActivity : AppCompatActivity() {
         private const val PREF_WEBSITE_URL = "lastWebsiteUrl"
 
         private const val MAX_JSON_BYTES = 2 * 1024 * 1024
+        private const val MAX_EXPORT_BYTES = 10 * 1024 * 1024
         fun isProductUrl(url: String) = NavigationPolicy.isProduct(url)
     }
 }
