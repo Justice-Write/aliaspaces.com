@@ -53,6 +53,12 @@ The APK is generated outside tracked source and contains no history or backups.
 
 Coordinator owns device scheduling; stock-take chat owns phone-PWA guidance and
 legacy report-source classification; this branch owns AliaSpaces client source.
+The coordinator relayed the MyPersonas source owner's readback at main
+`f513223b0e7627c06db8268c3fe3d11e5776cfe8`: no implemented content-report receipt
+contract is available to adopt; MyPersonas PR #22 remains design-only. Existing
+social projection source is separate from that report contract. This is a
+peer-reported source checkpoint, not an independent runtime/database verification.
+Report UI adoption remains blocked; do not invent an RPC or migrate production.
 No backend, account, production migration, desktop installation or hosting change
 was performed here. Public audit PR #4 remains a separate review lane.
 
