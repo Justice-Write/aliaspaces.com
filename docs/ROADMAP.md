@@ -63,8 +63,8 @@ owner-gated Auth dashboard, production SQL, or a real phone.
       claimed only after Auth returns a user id and access token.
 - [x] `identity-projection` rows (`account_id`, `persona_id`, `handle`,
       `lifecycle_state`) from `my_personas`.
-- [x] Client-side block/mute filter. Server-side block projections and a
-      staff report queue still need owner-gated production work.
+- [x] Client-side block/mute filter, as defense in depth. Server-side
+      block projections were already live (see 2026-10-16 below).
 - [x] Posts submitted through `save_persona_post` stay review-gated and
       are not described as auto-published.
 - [x] Fixture transport for tests/smoke never writes to production.
@@ -87,8 +87,9 @@ physical phone and not the owner's local phone-test builds):
 
 1. **Milestone 2 remainder — production authorization and moderation**
    Concrete contract: [docs/MOBILE-MILESTONE-2.md](MOBILE-MILESTONE-2.md).
-   Still needs server-side block projections, a content-report RPC, and a
-   staff queue. Those are production migrations, not client work.
+   Block projections are live. Reports are MyPersonas migration 080,
+   written and tested but not applied; holds are the 081 draft. Next: the
+   owner applies 080, then a staff queue surface.
 2. **Public read-only persona page** consuming a versioned public projection
    with opaque media identifiers (from the extraction plan on
    `split/social-platform-20260824`). Putting that on `aliaspaces.com`
@@ -123,3 +124,42 @@ Android debug build and automated checks passed; signature verified, installed i
 Remaining: Production authorization/moderation integration and two-account privacy, sign-in/MFA and real-device release verification.
 
 Portfolio evidence: `mobile-publishing-2026-09-20/design-apks/phone-verification.json`, app build log, and `DESIGN-ROADMAP-STATUS.md`. Older environment limitations above are historical; the phone is now connected.
+
+## Changelog
+
+### 2026-10-16 — Milestone 2 server slices (branch `codex/aliaspaces-m2-reports-20261016`)
+
+Verified in this checkout:
+
+- Read-only readback of project `nwsqyuucwzihruszocge` (`pg_policies`,
+  `pg_proc`). Symmetric server-side blocks are live; that is recorded in
+  `contracts/visibility-projection.md`. No report objects exist on the
+  server yet.
+- Reports: two sessions built them in parallel. The owner chose the
+  reviewed design, now MyPersonas migration 080 (`report_content`,
+  `my_content_reports`, staff list and review). Holds are the 081 draft.
+  The SQL, its verify snippet, and the PostgreSQL harness live in the
+  MyPersonas ledger. This repository keeps the consumed interface,
+  `contracts/content-reports.md`, checked by
+  `tests/content-reports-contract.test.mjs`.
+- An independent review of the first draft found eleven defects. All are
+  fixed and covered. The worst were:
+  - the hold predicate was callable through PostgREST;
+  - muting a persona could confirm that it had blocked you;
+  - held content could still be reported;
+  - a null assignee unassigned the report.
+  After the fixes, 29 of 30 targeted mutations are caught; the survivor
+  is equivalent.
+- Client on top of `main` b4ccde0: one report path, *My reports*,
+  `reports-not-enabled` honesty, *also block*, contract refusal of staff
+  RPCs, local-demo import as review-gated drafts, and `p_tags` sent as text.
+- `npm test`: 36 of 38 pass. The other two are the live-network tests,
+  which this sandbox cannot reach.
+- The fixture browser smoke `scripts/report-import-smoke.mjs` passes.
+
+Owner-gated:
+
+- Apply 080 in the SQL Editor, then run the verify snippet.
+- Adopt 081 with its seven RPC edits.
+- Decide excerpt retention, rate limits, and persona-level moderation.
+- Choose the staff surface and who staffs it.

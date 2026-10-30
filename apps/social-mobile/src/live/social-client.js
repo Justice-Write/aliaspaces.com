@@ -6,6 +6,14 @@
     ? null
     : null);
 
+  // Fixture-side copies of the server checks in migration 080. The client
+  // itself validates against the contract.
+  const REPORT_TARGET_KINDS = Object.freeze(["persona", "post", "comment"]);
+  const REPORT_REASONS = Object.freeze([
+    "spam", "harassment", "hate", "sexual_content", "violence",
+    "self_harm", "impersonation", "privacy", "intellectual_property", "illegal", "other",
+  ]);
+
   class LiveError extends Error {
     constructor(code, message) {
       super(message);
@@ -121,6 +129,8 @@
       visibilityRules: clone(seed.visibilityRules || []),
       friendships: clone(seed.friendships || []),
       reports: clone(seed.reports || []),
+      // Names of migration 080 RPCs this fixture should treat as not yet deployed.
+      serverPending: new Set(seed.serverPending || []),
     };
 
     function requireSession(session) {
@@ -196,7 +206,7 @@
             kind: args.p_kind || "update",
             title: normalizeText(args.p_title || ""),
             body: normalizeText(args.p_body || ""),
-            tags: args.p_tags || [],
+            tags: args.p_tags == null ? "" : String(args.p_tags),
             media_url: args.p_media_url || "",
             publication_state: "draft",
             created_at: new Date().toISOString(),
@@ -279,41 +289,63 @@
         if (name === "update_my_profile") {
           return { data: { display_name: args.p_display_name } };
         }
+        if (state.serverPending.has(name)) {
+          const error = new LiveError("http", `Could not find the function public.${name}`);
+          error.status = 404;
+          error.body = { code: "PGRST202", message: error.message };
+          return { error };
+        }
         if (name === "report_content") {
-          // Same rules as migration 080: you can only report what you can see, never your own.
-          const kind = args.p_target_kind;
-          let targetPersonaId = null;
-          if (kind === "persona") targetPersonaId = args.p_target_id;
-          if (kind === "post") {
-            const post = state.posts.find((item) => item.id === args.p_target_id);
-            targetPersonaId = post ? post.persona_id : null;
+          if (!REPORT_TARGET_KINDS.includes(args.p_target_kind) || !args.p_target_id) {
+            return { error: new LiveError("http", "Invalid report target") };
           }
-          if (kind === "comment") {
-            const comment = state.comments.find((item) => item.id === args.p_target_id);
-            targetPersonaId = comment ? comment.persona_id : null;
+          if (!REPORT_REASONS.includes(args.p_reason)) {
+            return { error: new LiveError("http", "Invalid report reason") };
           }
-          const target = state.personas.find((item) => item.id === targetPersonaId);
-          const hidden = new Set(hiddenPersonaIds(state, userId));
-          if (!target || hidden.has(target.id)) {
-            return { error: new LiveError("http", "Reportable content not found") };
+          if (args.p_reporter_persona_id && !state.personas.some((item) => (
+            item.id === args.p_reporter_persona_id && item.owner === userId
+          ))) {
+            return { error: new LiveError("http", "Acting persona must be yours") };
           }
-          if (target.owner === userId) {
-            return { error: new LiveError("http", "You cannot report your own content") };
-          }
-          const existing = state.reports.find((item) => item.reporter === userId && item.target_kind === kind
-            && item.target_id === args.p_target_id && item.status === "open");
-          if (existing) return { data: existing.id };
+          const target = fixtureReportTarget(state, userId, args.p_target_kind, args.p_target_id);
+          if (!target) return { error: new LiveError("http", "Reported content was not found") };
+          if (target.owner === userId) return { error: new LiveError("http", "You cannot report your own content") };
+          const existing = state.reports.find((item) => (
+            item.reporter === userId &&
+            item.target_kind === args.p_target_kind &&
+            item.target_id === args.p_target_id &&
+            item.state !== "resolved"
+          ));
+          if (existing) return { data: { id: existing.id, state: existing.state, duplicate: true } };
           const report = {
-            id: `rpt_${state.reports.length + 1}`,
+            id: `report_${state.reports.length + 1}`,
             reporter: userId,
-            target_kind: kind,
+            reporter_persona_id: args.p_reporter_persona_id || null,
+            target_kind: args.p_target_kind,
             target_id: args.p_target_id,
+            target_owner: target.owner,
             reason: args.p_reason,
-            details: args.p_details || "",
-            status: "open",
+            details: normalizeText(args.p_details || ""),
+            state: "open",
+            created_at: new Date().toISOString(),
           };
           state.reports.push(report);
-          return { data: report.id };
+          return { data: { id: report.id, state: report.state, duplicate: false } };
+        }
+        if (name === "my_content_reports") {
+          return {
+            data: state.reports
+              .filter((item) => item.reporter === userId)
+              .map((item) => ({
+                id: item.id,
+                target_kind: item.target_kind,
+                target_id: item.target_id,
+                reason: item.reason,
+                state: item.state,
+                created_at: item.created_at,
+                updated_at: item.updated_at || item.created_at,
+              })),
+          };
         }
         return { error: new LiveError("unknown-rpc", `Fixture transport has no handler for ${name}.`) };
       },
@@ -368,6 +400,135 @@
     return state.visibilityRules
       .filter((item) => item.account_id === accountId && (item.kind === "block" || item.kind === "mute"))
       .map((item) => item.other_persona_id);
+  }
+
+  // Mirrors moderation_private.report_persona_reachable() in migration 080: visible to
+  // the account, or hidden only by the account's own block/mute of a public,
+  // published persona. A block by the other side reads as not found.
+  function fixturePersonaReachable(state, accountId, personaId) {
+    const persona = state.personas.find((item) => item.id === personaId);
+    if (!persona) return false;
+    if (persona.owner === accountId) return true;
+    const open = ["public", "unlisted"].includes(persona.visibility) && persona.publication_state === "published";
+    if (!open) return false;
+    const mine = new Set(state.personas.filter((item) => item.owner === accountId).map((item) => item.id));
+    const blockedByOwner = state.visibilityRules.some((rule) => (
+      rule.account_id === persona.owner && rule.kind === "block" && mine.has(rule.other_persona_id)
+    ));
+    const ownRule = state.visibilityRules.some((rule) => (
+      rule.account_id === accountId && rule.other_persona_id === personaId &&
+      (rule.kind === "block" || rule.kind === "mute")
+    ));
+    if (ownRule) return true;
+    return !blockedByOwner;
+  }
+
+  function fixtureReportTarget(state, accountId, kind, targetId) {
+    const ownerOf = (personaId) => {
+      const persona = state.personas.find((item) => item.id === personaId);
+      return persona ? persona.owner : null;
+    };
+    if (kind === "persona") {
+      return fixturePersonaReachable(state, accountId, targetId) ? { owner: ownerOf(targetId) } : null;
+    }
+    if (kind === "post") {
+      const post = state.posts.find((item) => item.id === targetId);
+      if (!post || !fixturePersonaReachable(state, accountId, post.persona_id)) return null;
+      return { owner: ownerOf(post.persona_id) };
+    }
+    const comment = state.comments.find((item) => item.id === targetId);
+    if (!comment) return null;
+    const post = state.posts.find((item) => item.id === comment.post_id);
+    if (!post) return null;
+    if (!fixturePersonaReachable(state, accountId, comment.persona_id)) return null;
+    if (!fixturePersonaReachable(state, accountId, post.persona_id)) return null;
+    return { owner: ownerOf(comment.persona_id) };
+  }
+
+  function normalizeTags(value) {
+    if (Array.isArray(value)) return value.map((item) => normalizeText(item)).filter(Boolean).join(", ");
+    return normalizeText(value || "");
+  }
+
+  function isMissingFunction(error) {
+    if (!error) return false;
+    if (error.body && error.body.code === "PGRST202") return true;
+    return error.status === 404;
+  }
+
+  // Plans an explicit owner migration of a milestone 1 local-demo export into
+  // review-gated drafts. Pure: no network. Only posts whose local profile the
+  // owner maps to one of their own personas are planned. Fixture records,
+  // reactions, reports, and blocks are never imported: they point at
+  // device-only profiles, not real accounts.
+  function planLocalDemoImport(bundle, options = {}) {
+    const contract = getContract(options.contract);
+    if (!bundle || typeof bundle !== "object" || bundle.format !== "aliaspaces.social.local") {
+      throw new LiveError("invalid-import", "That file is not an AliaSpaces local-demo export.");
+    }
+    const state = bundle.state && typeof bundle.state === "object" ? bundle.state : null;
+    if (bundle.network !== "offline-local" || !state || (state.network && state.network !== "offline-local")) {
+      throw new LiveError("invalid-import", "Import refused a bundle that claims a network.");
+    }
+    const owned = new Set(options.ownedPersonaIds || []);
+    const mapping = options.mapping || {};
+    for (const personaId of Object.values(mapping)) {
+      if (personaId && !owned.has(personaId)) {
+        throw new LiveError("not-your-persona", "Local profiles can only become drafts on personas you own.");
+      }
+    }
+    const profiles = Array.isArray(state.profiles) ? state.profiles : [];
+    const posts = Array.isArray(state.posts) ? state.posts : [];
+    const profileById = new Map(profiles.map((profile) => [profile.id, profile]));
+    const items = [];
+    const skipped = [];
+    const ordered = posts.slice().sort((left, right) => (
+      String(left.createdAt || "").localeCompare(String(right.createdAt || ""))
+    ));
+    for (const post of ordered) {
+      const author = profileById.get(post.authorProfileId);
+      if (post.source === "fixture" || (author && author.source === "fixture")) {
+        skipped.push({ localPostId: post.id, reason: "fixture" });
+        continue;
+      }
+      if (!author) {
+        skipped.push({ localPostId: post.id, reason: "unknown-author" });
+        continue;
+      }
+      const personaId = mapping[author.id];
+      if (!personaId) {
+        skipped.push({ localPostId: post.id, reason: "unmapped-profile" });
+        continue;
+      }
+      const body = normalizeText(post.body);
+      if (!body) {
+        skipped.push({ localPostId: post.id, reason: "empty" });
+        continue;
+      }
+      items.push({
+        localPostId: post.id,
+        localProfileId: author.id,
+        personaId,
+        kind: "update",
+        title: "",
+        body,
+        tags: contract.localImportTag,
+        localCreatedAt: post.createdAt || null,
+      });
+    }
+    return {
+      items,
+      skipped,
+      notImported: {
+        reactions: Array.isArray(state.reactions) ? state.reactions.length : 0,
+        reports: Array.isArray(state.reports) ? state.reports.length : 0,
+        blocks: Array.isArray(state.blocks) ? state.blocks.length : 0,
+      },
+      profiles: profiles
+        .filter((profile) => profile.source !== "fixture")
+        .map((profile) => ({ id: profile.id, handle: profile.handle, displayName: profile.displayName || "" })),
+      warning: "Local reactions, reports, and blocks stay on the device because they point at device-only profiles. Each imported post becomes a review-gated draft. Importing the same file twice creates duplicates.",
+    };
   }
 
   function createHttpTransport(options = {}) {
@@ -510,6 +671,9 @@
       if (contract.forbiddenRpcs.includes(name)) {
         throw new LiveError("forbidden-rpc", `${name} is automation/control-plane and is blocked in this client.`);
       }
+      if ((contract.staffOnlyRpcs || []).includes(name)) {
+        throw new LiveError("staff-surface", `${name} belongs to the staff moderation surface, not this client.`);
+      }
       const spec = contract.allowedRpcs[name];
       if (!spec) throw new LiveError("unknown-rpc", `${name} is not in the AliaSpaces social contract.`);
       if (write && !spec.writes) {
@@ -626,10 +790,22 @@
     }
 
     async function callRpc(name, args, { write } = {}) {
-      return wrap(async () => {
+      const result = await wrap(async () => {
         assertAllowedRpc(name, { write: !!write });
         return transport.rpc(name, args || {}, session);
       });
+      const spec = contract.allowedRpcs[name];
+      if (!result.ok && spec && spec.server && isMissingFunction(result.error)) {
+        // PostgREST answers 404 when the function is not deployed yet.
+        return {
+          ok: false,
+          error: new LiveError(
+            "reports-not-enabled",
+            "Reporting is not enabled on the server yet. Nothing was sent.",
+          ),
+        };
+      }
+      return result;
     }
 
     async function readTable(table, query) {
@@ -673,7 +849,7 @@
       });
     }
 
-    return {
+    const clientApi = {
       CONTRACT: contract,
       LiveError,
       status,
@@ -745,7 +921,7 @@
           p_kind: input.kind || "update",
           p_title: normalizeText(input.title || ""),
           p_body: body,
-          p_tags: input.tags || [],
+          p_tags: normalizeTags(input.tags),
           p_media_url: input.mediaUrl || "",
         }, { write: true });
         if (!result.ok) return result;
@@ -789,34 +965,6 @@
           p_enabled: !!input.enabled,
         }, { write: true });
       },
-      async reportContent(input) {
-        const targetKind = input && input.targetKind;
-        const reason = input && input.reason;
-        const details = normalizeText(input && input.details);
-        if (!contract.reportTargetKinds.includes(targetKind) || !(input && input.targetId)) {
-          return { ok: false, error: new LiveError("invalid-report", "Choose a persona, post or comment to report.") };
-        }
-        if (!contract.reportReasons.includes(reason)) {
-          return { ok: false, error: new LiveError("invalid-report", "Choose a report reason.") };
-        }
-        if (details.length > contract.reportDetailsMax) {
-          return { ok: false, error: new LiveError("invalid-report", `Details are limited to ${contract.reportDetailsMax} characters.`) };
-        }
-        const result = await callRpc("report_content", {
-          p_target_kind: targetKind,
-          p_target_id: input.targetId,
-          p_reason: reason,
-          p_details: details,
-          p_reporter_persona_id: input.reporterPersonaId || null,
-        }, { write: true });
-        if (!result.ok && result.error && result.error.status === 404) {
-          // PostgREST answers 404 when the function is not deployed yet (migration 080 not applied).
-          return { ok: false, error: new LiveError("reports-not-enabled", "Reporting is not enabled on the server yet.") };
-        }
-        if (!result.ok) return result;
-        return { ok: true, data: { reportId: result.data, queued: true },
-          message: "Report sent to the staff review queue. It does not remove anything by itself." };
-      },
       async respondFriendship(input) {
         return callRpc("respond_persona_friendship", {
           p_request_id: input.requestId,
@@ -840,12 +988,105 @@
       toIdentityProjection,
       callRpc,
       readTable,
+      async reportContent(input) {
+        const kind = input && input.targetKind;
+        if (!contract.reportTargetKinds.includes(kind) || !(input && input.targetId)) {
+          return { ok: false, error: new LiveError("invalid-report", "Choose a persona, post, or comment to report.") };
+        }
+        if (!contract.reportReasons.includes(input.reason)) {
+          return { ok: false, error: new LiveError("invalid-report", "Choose a reason for the report.") };
+        }
+        const details = normalizeText(input.details || "");
+        if (details.length > contract.reportDetailsMax) {
+          return {
+            ok: false,
+            error: new LiveError("invalid-report", `Report details are limited to ${contract.reportDetailsMax} characters.`),
+          };
+        }
+        const result = await callRpc("report_content", {
+          p_target_kind: kind,
+          p_target_id: input.targetId,
+          p_reason: input.reason,
+          p_details: details,
+          p_reporter_persona_id: input.reporterPersonaId || null,
+        }, { write: true });
+        if (!result.ok) return result;
+        const raw = result.data || {};
+        const data = {
+          reportId: typeof raw === "string" ? raw : raw.id || null,
+          state: raw.state || "open",
+          duplicate: !!raw.duplicate,
+          queued: true,
+        };
+        return {
+          ok: true,
+          data,
+          duplicate: data.duplicate,
+          message: data.duplicate
+            ? "You already reported this. Staff still have your earlier report."
+            : "Report sent to the staff review queue. It does not remove anything by itself.",
+        };
+      },
+      async myReports(input) {
+        return callRpc("my_content_reports", { p_limit: (input && input.limit) || 50 });
+      },
+      planLocalDemoImport(bundle, options = {}) {
+        return planLocalDemoImport(bundle, Object.assign({ contract }, options));
+      },
     };
+
+    clientApi.importLocalDemoDrafts = async function importLocalDemoDrafts(plan) {
+      if (!status().signedIn) {
+        return { ok: false, error: new LiveError("unsigned", "Sign in first. Imports run only under a verified session.") };
+      }
+      if (!plan || !Array.isArray(plan.items)) {
+        return { ok: false, error: new LiveError("invalid-import", "Plan the import before running it.") };
+      }
+      const mine = await clientApi.myPersonas();
+      if (!mine.ok) return mine;
+      const owned = new Set((Array.isArray(mine.data) ? mine.data : []).map((persona) => persona.id));
+      if (plan.items.some((item) => !owned.has(item.personaId))) {
+        return {
+          ok: false,
+          error: new LiveError("not-your-persona", "Every imported draft must land on a persona this account owns. Nothing was imported."),
+        };
+      }
+      const results = [];
+      for (const item of plan.items) {
+        const saved = await clientApi.savePost({
+          personaId: item.personaId,
+          kind: "update",
+          title: "",
+          body: item.body,
+          tags: item.tags || contract.localImportTag,
+        });
+        results.push({
+          localPostId: item.localPostId,
+          ok: saved.ok,
+          postId: saved.ok && saved.data ? saved.data.id || null : null,
+          error: saved.ok ? null : saved.error && saved.error.message,
+        });
+        if (!saved.ok) break;
+      }
+      const imported = results.filter((item) => item.ok).length;
+      return {
+        ok: imported === plan.items.length,
+        imported,
+        total: plan.items.length,
+        results,
+        published: false,
+        reviewRequired: true,
+        message: `${imported} of ${plan.items.length} local posts saved as review-gated drafts. Nothing was published.`,
+      };
+    };
+
+    return clientApi;
   }
 
   const api = {
     LiveError,
     fixtureCatalog,
+    planLocalDemoImport,
     createMemoryTransport,
     createHttpTransport,
     createClient,

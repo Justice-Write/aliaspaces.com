@@ -27,8 +27,17 @@
       respond_persona_friendship: Object.freeze({ auth: "session", writes: true }),
       remove_persona_friendship: Object.freeze({ auth: "session", writes: true }),
       update_my_profile: Object.freeze({ auth: "session", writes: false }),
-      report_content: Object.freeze({ auth: "session", writes: true }),
+      // MyPersonas migration 080. Until it is applied the client reports
+      // "reports-not-enabled" and never claims a report was filed.
+      report_content: Object.freeze({ auth: "session", writes: true, server: "080" }),
+      my_content_reports: Object.freeze({ auth: "session", writes: false, server: "080" }),
     }),
+    // Staff moderation needs its own authorized surface, not this client.
+    staffOnlyRpcs: Object.freeze([
+      "staff_list_content_reports",
+      "staff_review_content_report",
+      "staff_set_content_hold",
+    ]),
     allowedTables: Object.freeze({
       personas: Object.freeze({ auth: "optional", writes: false }),
       posts: Object.freeze({ auth: "optional", writes: false }),
@@ -55,16 +64,28 @@
       "save_my_agent_binding_controls",
       "set_persona_backend",
       "save_account_ledger_entry",
-      "staff_list_content_reports",
-      "staff_resolve_content_report",
     ]),
     visibilityKinds: Object.freeze(["block", "mute"]),
     postKinds: Object.freeze(["update", "media", "link"]),
     reactionKinds: Object.freeze(["like", "celebrate", "support", "insight"]),
-    // Mirrors MyPersonas migration 080 (report_content). Staff queue RPCs stay out of this client.
+    // Mirrors MyPersonas migration 080 (report_content); contracts/content-reports.md
+    // is the versioned interface and a test keeps the two in step.
     reportTargetKinds: Object.freeze(["persona", "post", "comment"]),
-    reportReasons: Object.freeze(["spam", "harassment", "impersonation", "illegal", "other"]),
-    reportDetailsMax: 400,
+    reportReasons: Object.freeze([
+      "spam",
+      "harassment",
+      "hate",
+      "sexual_content",
+      "violence",
+      "self_harm",
+      "impersonation",
+      "privacy",
+      "intellectual_property",
+      "illegal",
+      "other",
+    ]),
+    reportDetailsMax: 2000,
+    localImportTag: "aliaspaces-local-import",
   });
 
   const api = { CONTRACT };

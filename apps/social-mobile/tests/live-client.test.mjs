@@ -225,22 +225,32 @@ test("reports reach the queue, dedupe, and never target your own content", async
   assert.match(own.error.message, /own content/);
 });
 
-test("a blocked target is indistinguishable from a missing one when reporting", async () => {
-  const { client } = await signedInNorth();
+test("being blocked by the target is indistinguishable from a missing target; your own block still lets you report", async () => {
+  const { factory } = await loadClient();
+  const transport = factory.createMemoryTransport();
+  const client = factory.createClient({ transport });
+  await client.signInWithPassword({ email: "fixture.north@example.invalid", password: "fixture-only-not-production" });
+
   await client.setVisibilityRule({ otherPersonaId: "persona_south", kind: "block", enabled: true });
-  const blocked = await client.reportContent({ targetKind: "persona", targetId: "persona_south", reason: "harassment" });
-  const missing = await client.reportContent({ targetKind: "persona", targetId: "persona_nobody", reason: "harassment" });
+  const ownBlock = await client.reportContent({ targetKind: "persona", targetId: "persona_south", reason: "harassment" });
+  assert.equal(ownBlock.ok, true, "block-then-report works");
+  await client.setVisibilityRule({ otherPersonaId: "persona_south", kind: "block", enabled: false });
+
+  transport._state.visibilityRules.push({ account_id: "acct_fixture_south", other_persona_id: "persona_north", kind: "block" });
+  const blocked = await client.reportContent({ targetKind: "post", targetId: "post_south", reason: "harassment" });
+  const missing = await client.reportContent({ targetKind: "post", targetId: "post_nobody", reason: "harassment" });
   assert.equal(blocked.ok, false);
   assert.equal(blocked.error.message, missing.error.message);
+  assert.doesNotMatch(blocked.error.message, /block/i);
 });
 
 test("report input is validated before any network call", async () => {
-  const { client } = await signedInNorth();
+  const { client, contract } = await signedInNorth();
   for (const bad of [
     { targetKind: "album", targetId: "x", reason: "spam" },
     { targetKind: "post", targetId: "", reason: "spam" },
     { targetKind: "post", targetId: "post_south", reason: "rude" },
-    { targetKind: "post", targetId: "post_south", reason: "spam", details: "x".repeat(401) },
+    { targetKind: "post", targetId: "post_south", reason: "spam", details: "x".repeat(contract.reportDetailsMax + 1) },
   ]) {
     const result = await client.reportContent(bad);
     assert.equal(result.ok, false);
@@ -271,15 +281,15 @@ test("reports require a session and say plainly when the server has not enabled 
   assert.equal(off.error.code, "reports-not-enabled");
 
   assert.equal(contract.allowedRpcs.report_content.writes, true);
-  assert.ok(contract.forbiddenRpcs.includes("staff_list_content_reports"));
-  assert.ok(contract.forbiddenRpcs.includes("staff_resolve_content_report"));
+  assert.ok(contract.staffOnlyRpcs.includes("staff_list_content_reports"));
+  assert.ok(contract.staffOnlyRpcs.includes("staff_review_content_report"));
   assert.equal(contract.allowedRpcs.staff_list_content_reports, undefined);
 });
 
 test("live UI offers report on others' posts only and routes it through reportContent", async () => {
   const source = await readFile(path.join(appRoot, "src/live/live-app.js"), "utf8");
-  assert.match(source, /\$\{own \? "" : reportForm\("post", post\.id\)\}/);
+  assert.match(source, /\$\{own \? "" : reportForm\("post", post\.id, post\.persona_id\)\}/);
   assert.match(source, /client\.reportContent\(/);
   assert.doesNotMatch(source, /Content reports are not a first-party RPC yet/);
-  assert.doesNotMatch(source, /staff_(list|resolve)_content_report/);
+  assert.doesNotMatch(source, /staff_(list|review)_content_report|staff_set_content_hold/);
 });

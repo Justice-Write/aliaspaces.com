@@ -66,6 +66,16 @@ No transition or provider action is authorized by this roadmap.
   control on others' posts, mapped to MyPersonas migration 080 (`report_content`).
   Until 080 is applied, the app says "Reporting is not enabled on the server
   yet". Staff queue RPCs are forbidden in this client. Android 0.3.2-social (code 5).
+- Reports merged onto one design (owner decision, branch
+  `codex/aliaspaces-m2-reports-20261016`). 080 was rewritten to the
+  independently reviewed version, and holds became the 081 draft. The client
+  gained:
+  - Report on personas, and *also block*.
+  - *My reports* (`my_content_reports`).
+  - Local-demo import as review-gated drafts.
+  - Staff RPCs moved to `staffOnlyRpcs`, matching the 080 names.
+  The interface is `contracts/content-reports.md`. Details are in
+  `docs/ROADMAP.md`.
 - Correction: server-side symmetric blocking was already live (MyPersonas
   migration 051 `persona_visible` / `can_request`). The "client filter only"
   note in ROADMAP-PROGRESS-2026-09-24 is stale.

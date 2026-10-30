@@ -30,6 +30,24 @@
   let feedPosts = [];
   let blocks = [];
   let lastError = "";
+  let myReports = [];
+  let reportsNote = "";
+  let importBundle = null;
+  let importFileName = "";
+  const REPORTS_OFF = "Reporting is not enabled on the server yet. No report can be sent until it is.";
+  const REPORT_REASON_LABELS = Object.freeze({
+    spam: "Spam",
+    harassment: "Harassment or bullying",
+    hate: "Hate",
+    sexual_content: "Sexual content",
+    violence: "Violence or threats",
+    self_harm: "Self-harm",
+    impersonation: "Impersonation",
+    privacy: "Private information",
+    intellectual_property: "Copyright or trademark",
+    illegal: "Illegal",
+    other: "Something else",
+  });
 
   function showToast(message) {
     toastEl.hidden = false;
@@ -78,6 +96,11 @@
 
   function setPanel(name) {
     currentPanel = name;
+    if (name === "safety") {
+      refreshReports().then(() => {
+        if (currentPanel === "safety") renderSafety();
+      });
+    }
     for (const [key, node] of Object.entries(panels)) {
       node.hidden = key !== name;
     }
@@ -110,24 +133,26 @@
           ? `<button type="button" class="danger" data-delete-post="${escapeHtml(post.id)}">Delete</button>`
           : `<button type="button" class="danger" data-block-persona="${escapeHtml(post.persona_id)}">Block author</button>`}
       </div>
-      ${own ? "" : reportForm("post", post.id)}
+      ${own ? "" : reportForm("post", post.id, post.persona_id)}
     </article>`;
   }
 
-  function reportForm(targetKind, targetId) {
-    const loaded = typeof globalThis !== "undefined" && globalThis.AliaSpacesLiveContract;
-    const reasons = (loaded && loaded.CONTRACT.reportReasons) || ["spam", "harassment", "impersonation", "illegal", "other"];
+  function reportForm(targetKind, targetId, personaId) {
+    const reasons = client.CONTRACT.reportReasons;
     return `<details class="report">
       <summary>Report</summary>
-      <form data-report-form data-target-kind="${escapeHtml(targetKind)}" data-target-id="${escapeHtml(targetId)}">
+      <form data-report-form data-target-kind="${escapeHtml(targetKind)}" data-target-id="${escapeHtml(targetId)}" data-persona-id="${escapeHtml(personaId || "")}">
+        <p class="meta">Reports go to staff review. The reported persona cannot see reports or who filed them.</p>
         <label>Reason
           <select name="reason" required>
-            ${reasons.map((reason) => `<option value="${escapeHtml(reason)}">${escapeHtml(reason)}</option>`).join("")}
+            <option value="" selected disabled>Choose a reason</option>
+            ${reasons.map((reason) => `<option value="${escapeHtml(reason)}">${escapeHtml(REPORT_REASON_LABELS[reason] || reason)}</option>`).join("")}
           </select>
         </label>
         <label>Details (optional)
-          <textarea name="details" maxlength="400"></textarea>
+          <textarea name="details" maxlength="${client.CONTRACT.reportDetailsMax}"></textarea>
         </label>
+        ${personaId ? `<label class="check"><input type="checkbox" name="alsoBlock"> Also block this persona for my whole account</label>` : ""}
         <button class="btn">Send report</button>
       </form>
     </details>`;
@@ -152,7 +177,8 @@
       <div class="card">
         <h2>@${escapeHtml(openPersona.handle)}</h2>
         <p>${escapeHtml(openPersona.bio || openPersona.tagline || "No public bio.")}</p>
-        <p class="meta">${openPosts.length} visible post${openPosts.length === 1 ? "" : "s"} after client block filters.</p>
+        <p class="meta">${openPosts.length} visible post${openPosts.length === 1 ? "" : "s"}. The server applies blocks before these rows arrive.</p>
+        ${client.status().signedIn && !personas.some((item) => item.id === openPersona.id) ? reportForm("persona", openPersona.id, openPersona.id) : ""}
       </div>
       <div class="list">${openPosts.map((post) => postCard(post, openPersona)).join("") || `<div class="empty">No visible posts for this persona.</div>`}</div>
     ` : "";
@@ -191,7 +217,7 @@
     panels.feed.innerHTML = `
       <div class="card">
         <h1>Acting as @${escapeHtml(actor.handle)}</h1>
-        <p class="meta">${visible.length} visible post${visible.length === 1 ? "" : "s"}. Blocked authors are excluded on the client. Server-side block projections remain an owner-gated migration.</p>
+        <p class="meta">${visible.length} visible post${visible.length === 1 ? "" : "s"}. The server enforces blocks in both directions. This client also hides an author the moment you block them.</p>
       </div>
       <div class="list">${visible.map((post) => {
         const persona = personas.find((item) => item.id === post.persona_id) || openPersona;
@@ -231,12 +257,86 @@
         <div class="actions"><button type="button" class="ghost" data-unblock-persona="${escapeHtml(target)}">Unblock</button></div>
       </article>`;
     }).join("");
+    const reportItems = myReports.map((report) => `
+      <article class="list-item">
+        <p>${escapeHtml(report.target_kind)} · ${escapeHtml(REPORT_REASON_LABELS[report.reason] || report.reason)}</p>
+        <p class="meta">${escapeHtml(String(report.state || "").replace("_", " "))} · ${escapeHtml(String(report.created_at || "").slice(0, 10))}</p>
+      </article>
+    `).join("");
     panels.safety.innerHTML = `
       <div class="card">
-        <h1>Account blocks</h1>
-        <p>set_persona_visibility_rule(block) is account-wide. Hidden-by-block is applied here as a client filter. Report a post from its card; reports go to the staff review queue, which is not part of this client.</p>
+        <h1>My reports</h1>
+        <p class="meta">Report a post or persona from its card. Reports go to the staff review queue, which is not part of this client, and never remove anything by themselves.</p>
+        ${reportsNote ? `<p class="meta">${escapeHtml(reportsNote)}</p>` : ""}
+        <div class="list">${reportItems || (reportsNote ? "" : `<p class="meta">You have not filed any reports.</p>`)}</div>
+      </div>
+      <div class="card">
+        <h2>Account blocks</h2>
+        <p>A block is account-wide and works both ways: the server hides each side from the other. The blocked persona is not told.</p>
       </div>
       <div class="list">${items || `<p class="meta">No account blocks returned.</p>`}</div>
+    `;
+  }
+
+  async function refreshReports() {
+    if (!client.status().signedIn) {
+      myReports = [];
+      reportsNote = "";
+      return;
+    }
+    const result = await client.myReports();
+    if (result.ok) {
+      myReports = Array.isArray(result.data) ? result.data : [];
+      reportsNote = "";
+    } else {
+      myReports = [];
+      reportsNote = result.error && result.error.code === "reports-not-enabled"
+        ? REPORTS_OFF
+        : `Reports could not be loaded: ${(result.error && result.error.message) || "unknown error"}`;
+    }
+  }
+
+  function renderImportCard() {
+    if (!client.status().signedIn) return "";
+    if (!importBundle) {
+      return `
+        <div class="card">
+          <h2>Bring in local-demo posts</h2>
+          <p class="meta">Choose a JSON export from the Local demo tab. You pick which of your personas each local profile becomes. Posts arrive as review-gated drafts. Nothing is published.</p>
+          <label>Local-demo export
+            <input type="file" id="importFile" accept="application/json,.json">
+          </label>
+        </div>
+      `;
+    }
+    let plan;
+    try {
+      plan = client.planLocalDemoImport(importBundle, { ownedPersonaIds: personas.map((item) => item.id) });
+    } catch (error) {
+      return `<div class="card"><h2>Bring in local-demo posts</h2><p class="meta">${escapeHtml(error.message)}</p>
+        <div class="actions"><button type="button" class="ghost" id="importReset">Choose another file</button></div></div>`;
+    }
+    const personaOptions = personas.map((persona) => (
+      `<option value="${escapeHtml(persona.id)}">@${escapeHtml(persona.handle)}</option>`
+    )).join("");
+    const rows = plan.profiles.map((profile) => `
+      <label>@${escapeHtml(profile.handle)}${profile.displayName ? ` · ${escapeHtml(profile.displayName)}` : ""}
+        <select name="map:${escapeHtml(profile.id)}">
+          <option value="">Skip this profile</option>
+          ${personaOptions}
+        </select>
+      </label>
+    `).join("");
+    return `
+      <form id="importForm" class="card">
+        <h2>Bring in local-demo posts</h2>
+        <p class="meta">${escapeHtml(importFileName)} · ${plan.items.length + plan.skipped.length} local posts. ${escapeHtml(plan.warning)}</p>
+        ${rows || `<p class="meta">This export has no user-created profiles.</p>`}
+        <div class="actions">
+          <button class="btn" type="submit" ${rows ? "" : "disabled"}>Import as review drafts</button>
+          <button class="ghost" type="button" id="importReset">Cancel</button>
+        </div>
+      </form>
     `;
   }
 
@@ -276,9 +376,10 @@
         <h2>Owned personas</h2>
         <div class="list">${switcher || `<p class="meta">${status.signedIn ? "No personas returned for this account." : "Sign in to load identity-projection rows."}</p>`}</div>
       </div>
+      ${renderImportCard()}
       <div class="card">
         <h2>What this client will not do</h2>
-        <p>It will not copy automation, billing, or provider credentials. It will not treat a local-demo JSON import as a network publish. It will not say signed in after a failed Google WebView login.</p>
+        <p>It will not copy automation, billing, or provider credentials. It will not treat a local-demo import as a network publish: imported posts are review-gated drafts on personas you choose. It will not say signed in after a failed Google WebView login.</p>
         ${lastError ? `<p class="meta">Last error: ${escapeHtml(lastError)}</p>` : ""}
       </div>
     `;
@@ -372,6 +473,8 @@
       personas = [];
       feedPosts = [];
       blocks = [];
+      myReports = [];
+      importBundle = null;
       showToast("Signed out. The app no longer claims a session.");
       return render();
     }
@@ -385,6 +488,11 @@
       if (!result.ok) return fail(result, "Sign-up failed.");
       showToast(result.message);
       await refreshMine();
+      return render();
+    }
+    if (event.target.id === "importReset") {
+      importBundle = null;
+      importFileName = "";
       return render();
     }
     const open = event.target.closest("[data-open-persona]");
@@ -457,10 +565,49 @@
         details: String(data.get("details") || ""),
         reporterPersonaId: actor ? actor.id : null,
       });
-      if (!result.ok) return fail(result, "Report was not sent.");
+      const reportsOff = !result.ok && result.error && result.error.code === "reports-not-enabled";
+      if (!result.ok && !reportsOff) return fail(result, "Report was not sent.");
+      let message = reportsOff ? "Reporting is not enabled on the server yet. No report was sent." : result.message;
+      if (reportsOff) reportsNote = REPORTS_OFF;
+      const personaId = reportFormEl.getAttribute("data-persona-id");
+      if (data.get("alsoBlock") && personaId) {
+        const blocked = await client.setVisibilityRule({ otherPersonaId: personaId, kind: "block", enabled: true });
+        message = blocked.ok
+          ? `${message} Persona blocked.`
+          : `${message} The block did not save: ${(blocked.error && blocked.error.message) || "unknown error"}`;
+        await refreshMine();
+      }
       reportFormEl.closest("details").open = false;
+      if (!reportsOff) await refreshReports();
+      showToast(message);
+      return render();
+    }
+    if (event.target.id === "importForm") {
+      event.preventDefault();
+      if (!importBundle) return;
+      const data = new FormData(event.target);
+      const mapping = {};
+      for (const [key, value] of data.entries()) {
+        if (key.startsWith("map:") && value) mapping[key.slice(4)] = String(value);
+      }
+      let plan;
+      try {
+        plan = client.planLocalDemoImport(importBundle, {
+          ownedPersonaIds: personas.map((item) => item.id),
+          mapping,
+        });
+      } catch (error) {
+        return fail({ error }, "Import was refused.");
+      }
+      if (!plan.items.length) return showToast("No posts matched a mapped profile. Nothing was imported.");
+      if (!window.confirm(`Save ${plan.items.length} local post${plan.items.length === 1 ? "" : "s"} as review-gated drafts?`)) return;
+      const result = await client.importLocalDemoDrafts(plan);
+      if (!result.ok && !result.results) return fail(result, "Import failed. Nothing was imported.");
+      importBundle = null;
+      importFileName = "";
+      await refreshMine();
       showToast(result.message);
-      return;
+      return render();
     }
     if (event.target.id === "authForm") {
       event.preventDefault();
@@ -494,6 +641,21 @@
       await refreshMine();
       return render();
     }
+  });
+
+  document.addEventListener("change", async (event) => {
+    if (event.target.id !== "importFile") return;
+    const file = event.target.files && event.target.files[0];
+    if (!file) return;
+    try {
+      importBundle = JSON.parse(await file.text());
+      importFileName = file.name;
+    } catch (_error) {
+      importBundle = null;
+      importFileName = "";
+      return showToast("That file is not readable JSON.");
+    }
+    render();
   });
 
   window.AliaSpacesLiveApp = {

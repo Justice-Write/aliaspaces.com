@@ -52,10 +52,12 @@ social records while keeping AliaSpaces inside its product boundary.
 
 - Dashboard Auth redirect URIs / audience for magic-link and Google so
   those methods can return into the app origin.
-- Production SQL for server-side block projections (client filter is
-  defense-in-depth only).
-- A content-report RPC and staff queue. The live site currently exposes
-  `report_client_error` (telemetry), not a moderation queue.
+- Applying MyPersonas migration 080 (reports and staff queue) in the SQL
+  Editor, then `supabase/snippets/verify_080_content_reports.sql`.
+- Adopting the 081 holds draft. The ledger owner must first add the hold
+  filter to seven SECURITY DEFINER social RPCs; the draft refuses to apply
+  until they do.
+- A staff surface for the report queue, plus who staffs it.
 - Real-phone MFA, two-account privacy, store builds, and merge/deploy.
 
 ## Out of scope
@@ -81,16 +83,44 @@ The first two signed-in checks need an owner phone or staging accounts.
 The client already fails closed without a session and hides blocked
 fixture posts.
 
-## Suggested remaining slices
+## Remaining slices — status 2026-10-16
 
 1. Owner adds Auth redirect URIs for the app / Custom Tabs origin.
-2. Server-side block table + projection filters (production migration).
-3. Report RPC + staff queue read model.
-4. Migration notes for importing a milestone 1 export as an owner-owned
-   draft set, never as other people's accounts.
+   **Owner-gated.**
+2. Server-side block projections. **Already live.** `persona_visible` and
+   `persona_mode_can_view` enforce symmetric blocks on every social read.
+   No migration is needed. See `contracts/visibility-projection.md`.
+3. Report RPC and staff queue read model. **Written and tested, not
+   applied.** MyPersonas migration 080 covers reports, reporter RPCs, the
+   staff queue and transitions. The 081 draft covers moderation holds and
+   per-viewer state. The client calls `report_content` and
+   `my_content_reports`, and says reporting is not enabled until 080 is
+   applied. Interface: `contracts/content-reports.md`.
+4. Import of a milestone 1 export. **Done in the client.**
+   `planLocalDemoImport` and `importLocalDemoDrafts` map chosen local
+   profiles onto owned personas as review-gated drafts. Fixtures,
+   reactions, reports and blocks are never imported.
 
 ## Owner gates
 
 Production migrations, function deploys, provider credentials, and store
 builds remain owner-confirmed. Agents may prepare code, tests, and staging
 artifacts only.
+
+## Changelog
+
+### 2026-10-16 — Milestone 2 server slices
+
+- Correction: server-side block projections were already in production. A
+  read-only `pg_policies`/`pg_proc` readback confirmed it.
+- Two sessions built reports in parallel. The owner chose the reviewed
+  design and merged it into MyPersonas migration 080, keeping the RPC name
+  `report_content`; holds are the 081 draft. The SQL and its PostgreSQL
+  harness live in the MyPersonas ledger. This repository keeps the
+  consumed interface, `contracts/content-reports.md`.
+- Client: one report path (inline *Report* on others' posts and personas,
+  with *also block*), *My reports*, an honest `reports-not-enabled` state,
+  refusal of staff RPCs, and local-demo import as review-gated drafts.
+- Fix: `savePost` sent `p_tags` as a JSON array, but `save_persona_post`
+  takes text, so posts would have stored the literal `[]`. It now sends a
+  comma-separated string.
