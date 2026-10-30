@@ -1,5 +1,14 @@
 # AliaSpaces roadmap
 
+## Reconciliation note — 2026-10-29
+
+The dated implementation checkpoints below are historical, not a claim that
+all current work is merged or installed. Use
+[Product foundation and data boundaries](PRODUCT-FOUNDATION-AND-DATA-BOUNDARIES.md)
+for the owner-command-center foundation, related products, personal-data
+separation and ordered release acceptance. Check the local root handoff for
+active release work and current evidence before changing this repository.
+
 This repository is the AliaSpaces product home. `main` still publishes only
 the four-file HTTPS front door that redirects `aliaspaces.com` to
 `https://mypersonas.online`. Application work lives in separate directories
