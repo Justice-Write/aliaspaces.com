@@ -50,6 +50,13 @@ throughout the APK. This is a packaging check, not an exhaustive secret detector
 - Social session key: `aliaspaces.social.live.session.v1`. Treat sessions and
   WebView cookie databases as credentials. Akasha JSON backup is not a session
   backup and should not acquire tokens or cookies.
+- From Android 0.4.1/code 7, automatic backup is disabled and all nine storage
+  domains are explicitly excluded from both cloud backup and device transfer.
+  Explicit, user-selected JSON export/import remains available. This prevents
+  implicit migration of WebView sessions and raw history; it does not delete
+  an existing install's records. The policy is compiled into the APK and tested
+  against [Android's backup-rule schema](https://developer.android.com/identity/data/autobackup).
+  Actual cloud/device-transfer operations are not exercised during local tests.
 - Browser use: localStorage belongs to the browser profile and exact origin.
   Changing hostname/port does not migrate data. Export before moving origins.
 - Website data is stored under MyPersonas's shared backend authority. A local
@@ -76,6 +83,12 @@ The pre-upgrade Android backup is a local private tar archive with 137 files.
 It was checked as a readable tar and hashed. Keep it outside public repositories,
 GitHub releases, screenshots and shared source packages. Recovery archives may
 contain sessions. Do not relocate/delete originals merely to reduce package size.
+
+Physical restore tests use the separate `.acceptance` Android application ID,
+with byte-identical bundled web assets, debug inspection enabled only for debug
+builds, and explicitly synthetic fixtures outside the APK. This protects owner
+records from test imports and data-reset simulations. The acceptance APK is a
+test artifact and must not be published as the normal release package.
 
 ## Associated chat review
 

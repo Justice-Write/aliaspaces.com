@@ -54,6 +54,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         com.portfolio.guide.WindowSafety.apply(this)
         webView = findViewById(R.id.webView)
+        if (BuildConfig.DEBUG) WebView.setWebContentsDebuggingEnabled(true)
         modeLabel = findViewById(R.id.modeLabel)
         offlineBanner = findViewById(R.id.offlineBanner)
         liveButton = findViewById(R.id.liveButton)

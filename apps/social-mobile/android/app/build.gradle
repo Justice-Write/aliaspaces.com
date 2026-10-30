@@ -13,8 +13,8 @@ android {
         applicationId "com.aliaspaces.social.local"
         minSdk 24
         targetSdk 36
-        versionCode 6
-        versionName "0.4.0-akasha"
+        versionCode 7
+        versionName "0.4.1-akasha"
     }
 
     signingConfigs {
@@ -35,7 +35,15 @@ android {
             signingConfig signingConfigs.localDebug
             minifyEnabled false
         }
+        acceptance {
+            initWith release
+            applicationIdSuffix ".acceptance"
+            matchingFallbacks = ["release"]
+            debuggable true
+        }
     }
+
+    buildFeatures { buildConfig true }
 
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17

@@ -23,7 +23,10 @@ try {
     } finally { Pop-Location }
     $dist = Join-Path $appRoot 'dist'
     New-Item -ItemType Directory -Force -Path $dist | Out-Null
-    $apk = Join-Path $dist 'AliaSpaces-0.4.0-akasha-local-signed.apk'
+    $gradle = Get-Content -LiteralPath "$androidRoot\app\build.gradle" -Raw
+    $version = [regex]::Match($gradle, 'versionName "([0-9.]+-akasha)"').Groups[1].Value
+    if (-not $version) { throw 'Android versionName was not found.' }
+    $apk = Join-Path $dist "AliaSpaces-$version-local-signed.apk"
     Copy-Item -LiteralPath "$androidRoot\app\build\outputs\apk\release\app-release.apk" -Destination $apk
     & "$SdkRoot\build-tools\36.0.0\apksigner.bat" verify --verbose $apk
     if ($LASTEXITCODE -ne 0) { throw 'APK signature verification failed.' }
