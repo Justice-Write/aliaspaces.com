@@ -1,5 +1,9 @@
 # AliaSpaces
 
+For the relationship between the owner app, social client, Akasha and desktop
+tools, plus installer/personal-data boundaries and release acceptance, read
+[Product foundation and data boundaries](docs/PRODUCT-FOUNDATION-AND-DATA-BOUNDARIES.md).
+
 AliaSpaces is the first-party social product for presenting, discovering, and
 interacting through owner-controlled personas. It is being separated from the
 MyPersonas automation and owner-control plane.
