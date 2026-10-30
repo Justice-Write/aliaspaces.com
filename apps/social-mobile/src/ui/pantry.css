@@ -4,3 +4,8 @@ button { background: var(--accent); color: white; border: 0; padding: 10px 16px;
 article button { background: white; color: var(--accent); border: 1px solid var(--line); }
 article p { overflow-wrap: anywhere; }
 fieldset { border: 1px solid var(--line); border-radius: 12px; margin-bottom: 12px; }
+.check { display: flex; align-items: center; gap: 12px; min-height: 44px; }
+.check input { width: 22px; min-height: 22px; margin: 0; padding: 0; }
+.reflection { margin: 12px 0; }
+.reflection summary { cursor: pointer; min-height: 44px; padding: 10px 0; }
+.reflection textarea { resize: vertical; }

@@ -4,7 +4,7 @@
     <string name="mode_social">Social</string>
     <string name="mode_local">Local</string>
     <string name="open_chrome">Chrome</string>
-    <string name="website_mode_hint">Website · Shared MyPersonas account</string>
+    <string name="website_mode_hint">Website · MyPersonas owner command center</string>
     <string name="social_mode_hint">Social · Sign in to your shared account. Posts require review.</string>
     <string name="local_mode_hint">Local demo only. Nothing is sent to the website database.</string>
     <string name="google_login_hint">If Google sign-in is blocked inside the app, use Chrome. Email and password stay in this app. Chrome is a separate session.</string>

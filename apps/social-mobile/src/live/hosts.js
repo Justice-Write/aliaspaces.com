@@ -25,17 +25,18 @@
   ]);
 
   function hostOf(value) {
-    const text = String(value || "");
-    const match = text.match(/^[a-z][a-z0-9+.-]*:\/\/([^/?#]+)/i);
-    const host = (match ? match[1] : text.split("/")[0]).replace(/^\[|\]$/g, "").split(":")[0];
-    return host.toLowerCase();
+    if (typeof value !== "string" || value !== value.trim() || value.includes("\\")) return "";
+    try {
+      const url = new URL(value);
+      return url.protocol === "https:" && !url.username && !url.password && (!url.port || url.port === "443") ? url.hostname.toLowerCase() : "";
+    } catch { return ""; }
   }
 
   function isAllowedHost(value) {
     const host = hostOf(value);
     if (!host) return false;
     if (LIVE_HOSTS.includes(host) || AUTH_HOSTS.includes(host) || ASSET_HOSTS.includes(host)) return true;
-    return host.endsWith(".supabase.co") || host.endsWith(".googleusercontent.com") || host.endsWith(".gstatic.com");
+    return false;
   }
 
   function isLiveProductHost(value) {

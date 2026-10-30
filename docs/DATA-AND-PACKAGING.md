@@ -1,6 +1,6 @@
 # Program files and personal data
 
-Reviewed 29 October 2026. Application code and user records are separable.
+Reviewed 30 October 2026. Application code and user records are separable.
 An installer needs the program; it must not contain the owner's account history,
 persona libraries, sessions, exports or recovery archives.
 
@@ -28,7 +28,7 @@ Do not delete or consolidate them solely because their names overlap.
 | Public Supabase URL/key and RPC contract | APK | Public client configuration; authorization remains server-side |
 | Private/service credentials or refresh tokens | No | Never package or publish |
 | Android WebView cookies, localStorage, preferences | No | Device app data; keep across in-place upgrades |
-| Akasha original history rows, account labels, reviews, tags | No | Personal records; explicit JSON export/merge backup |
+| Akasha original history rows, account labels, reviews, tags, reflections and rules | No | Personal records; explicit JSON export/merge backup |
 | Source history archives, saved exports and backup tar files | No | Private owner files; store outside checkout/releases |
 | Desktop character/media/project/history libraries and model weights | No | External user assets and optional model dependencies |
 | Tests/fixtures, screenshots, handoffs, node_modules, SDK/cache | No | Development/review material, not runtime payload |
