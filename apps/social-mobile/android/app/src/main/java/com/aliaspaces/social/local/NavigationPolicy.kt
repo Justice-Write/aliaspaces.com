@@ -19,13 +19,14 @@ object NavigationPolicy {
     fun isProduct(url: String) = https(url)?.host?.lowercase() in productHosts
     fun isAsset(url: String) = https(url)?.let { it.host == assetHost && it.rawPath.startsWith("/assets/www/") } == true
     fun isLocalDocument(url: String) = https(url)?.let { it.host == assetHost && it.rawPath == "/assets/www/index.html" } == true
+    fun isAkashaDocument(url: String) = https(url)?.let { it.host == assetHost && it.rawPath == "/assets/www/akasha.html" } == true
 
     fun isAllowed(url: String, mode: String): Boolean {
         val uri = https(url) ?: return false
         val host = uri.host.lowercase()
         if (host == assetHost) {
             return when (mode) {
-                "local" -> uri.rawPath == "/assets/www/index.html"
+                "local" -> uri.rawPath in setOf("/assets/www/index.html", "/assets/www/pantry.html", "/assets/www/akasha.html")
                 "social" -> uri.rawPath in setOf("/assets/www/live.html", "/assets/www/error.html")
                 "website" -> uri.rawPath == "/assets/www/error.html"
                 else -> false
@@ -35,6 +36,7 @@ object NavigationPolicy {
     }
 
     fun fileTypes(url: String, mode: String): List<String> = when {
+        mode == "local" && isAkashaDocument(url) -> listOf("application/json", "text/json", "text/plain", "application/zip", "application/x-zip-compressed")
         mode == "local" && isLocalDocument(url) -> listOf("application/json")
         mode == "website" && isProduct(url) -> listOf("image/*", "video/*")
         else -> emptyList()

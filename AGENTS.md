@@ -1,5 +1,10 @@
 # AliaSpaces agent guide
 
+> **Read `status-handoff.md` (repo root) before doing anything.** Before you start
+> work, record what you are about to do in its *In progress* section; when you
+> finish or stop, move that entry to the *Work log* and update current state and
+> next steps. This applies to every model and tool working in this repository.
+
 Read this file, `docs/ROADMAP.md`, and the current source before changing
 anything.
 
@@ -7,7 +12,7 @@ anything.
 
 - The selected GitHub Pages site is a **redirect/front door** only:
   `index.html`, `404.html`, `CNAME`, `.nojekyll`. Preserve it.
-- The Pages workflow publishes those four files from `main`. Do not add
+- The Pages workflow publishes those files plus `favicon.svg` from `main`. Do not add
   application source to that artifact.
 - Social product work lives under `apps/`. The isolated mobile surface is
   `apps/social-mobile/`: Local demo, Website WebView, and first-party

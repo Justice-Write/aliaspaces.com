@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Akasha | AliaSpaces local demo</title><link rel="stylesheet" href="./src/ui/app.css"><link rel="stylesheet" href="./src/ui/pantry.css"></head>
+<body><header class="topbar"><div><h1>Akasha</h1><p>AliaSpaces · local/demo</p></div><a href="./index.html">Local social</a></header>
+<div class="banner">Device storage only. Coverage is exactly the account-history files you import or content you paste here. No automatic account sync is connected. Suggestions use basic keyword matching, not AI. Unclassified content is kept.</div>
+<main class="sheet">
+<p>Your Akashic records: keep what matters from your digital experiences.</p>
+<details open><summary>Category setup</summary><form id="setup"><fieldset id="categories"><legend>What will you save?</legend></fieldset><label>Custom categories (comma separated)<input id="custom" maxlength="1000"></label><button>Save categories</button></form><p>Categories guide suggestions; you can assign any tags to any item. Changes apply to future captures.</p></details>
+<section aria-labelledby="account-history-heading">
+<h2 id="account-history-heading">History recorded by your accounts</h2>
+<p>Import the history retained by a platform, including phone-app activity present in its export. No browser recorder is used. Coverage depends on the platform's retention, account history settings, date range and export contents.</p>
+<label>Platform<select id="account-history-provider"></select></label>
+<p id="account-history-help"></p><a id="account-history-link" target="_blank" rel="noopener noreferrer">Open platform export instructions</a>
+<p id="account-history-automatic" role="status"></p>
+<label>Account label (provided by you; keep it consistent)<input id="account-history-label" maxlength="100" placeholder="e.g. my-personal-account" required></label>
+<label>Timezone offset for timestamps without a timezone<select id="account-history-offset"><option value="">Unknown — retain original time without inventing a viewing date</option><option value="+00:00">UTC (+00:00), only if confirmed by your export</option><option value="-08:00">UTC−08:00</option><option value="-09:00">UTC−09:00</option><option value="-07:00">UTC−07:00</option><option value="-05:00">UTC−05:00</option><option value="+01:00">UTC+01:00</option><option value="+05:30">UTC+05:30</option></select></label>
+<p>Timezone offsets can change with daylight saving time. Leave unknown for mixed or uncertain timestamps; original source values are preserved. Known viewing dates are displayed in UTC.</p>
+<label>Select account-history JSON, TikTok watch-history TXT, or ZIP<input id="account-history-file" type="file" accept=".json,.txt,.zip,application/json,application/zip,text/plain"></label>
+<p id="account-history-report" role="status"></p><div id="account-history-sample"></div><button type="button" id="account-history-commit" disabled>Import account history to review</button>
+</section>
+<h2>Manual capture</h2><form id="capture"><label>Day viewed or captured<input id="day" type="date" required></label><label>Paste content or links, one item per line<textarea id="content" rows="5" required placeholder="Paste your own titles, notes, or URLs here"></textarea></label><button>Add every item to inbox</button></form>
+<p id="message" role="status" aria-live="polite"></p>
+<h2>Review and find</h2><label>Collection<select id="collection"><option value="">Daily inbox · all statuses</option><option value="pending">Pending review</option><option value="approved">Akashic records · approved</option><option value="rejected">Rejected · retained</option></select></label>
+<label>Filter by day (clear for all days)<input id="filter-day" type="date"></label><label>Search content and tags<input id="search" type="search"></label><p id="count"></p><div id="items"></div>
+<h2>Local backup</h2><button id="export" type="button">Export Akashic records JSON</button><label>Import Akashic records JSON (merge; existing IDs preserved)<input id="import" type="file" accept="application/json,.json"></label>
+</main><script type="module" src="./src/ui/pantry.js"></script></body></html>

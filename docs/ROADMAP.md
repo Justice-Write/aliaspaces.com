@@ -1,5 +1,28 @@
 # AliaSpaces roadmap
 
+## Current checkpoint — 29 October 2026
+
+- [x] Combine local Akasha capture/history imports with PR #3 session/report
+      safety fixes in an isolated release branch.
+- [x] Native Akasha history-file picker policy and JSON export-save dispatch;
+      keep social-demo native import restricted to its original page.
+- [x] Windows release builder and exact source-hashed APK payload verifier.
+- [x] 48/48 Node tests, 3/3 Android navigation tests, vital lint/release build,
+      both synthetic Akasha browser smoke flows.
+- [x] Update Samsung SM-N986U1 from code 5 to code 6 in place after a private
+      app-data backup and matching-certificate check; verify version and local UI.
+- [x] Document related projects, chat evidence and personal-data separation.
+- [ ] Complete Android picker/save/reload/merge walkthrough in a dedicated
+      device session; another app took foreground during verification.
+- [ ] Verify genuine history-only exports, real-account privacy/MFA and
+      moderation deployment under the MyPersonas authority.
+- [ ] History-specific provider consent/backend transfers, AI reflection and
+      user-controlled feed filters remain future work.
+
+See [release details](RELEASE-2026-10-29.md) and
+[data/package boundaries](DATA-AND-PACKAGING.md). Older milestone paragraphs
+below are historical checkpoints, not current cloud/device limitations.
+
 This repository is the AliaSpaces product home. `main` still publishes only
 the four-file HTTPS front door that redirects `aliaspaces.com` to
 `https://mypersonas.online`. Application work lives in separate directories

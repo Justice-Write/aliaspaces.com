@@ -26,3 +26,15 @@ matrix pass. See [PROJECT-BOUNDARY.md](PROJECT-BOUNDARY.md) and
 The isolated local/demo social mobile prototype lives in
 `apps/social-mobile/` and is not part of the Pages artifact. See
 `docs/ROADMAP.md` and `AGENTS.md`.
+
+## Akasha mobile prerelease — 29 October 2026
+
+The Android candidate now includes Akasha's local inbox and account-history
+file imports, native JSON backup dispatch, and the reviewed social-session
+verification fixes. See [release evidence and remaining acceptance](docs/RELEASE-2026-10-29.md)
+and [program versus personal data](docs/DATA-AND-PACKAGING.md).
+
+Build on Windows with `pwsh -File apps/social-mobile/scripts/build-apk.ps1`.
+This produces a local-demo-signed release APK and checks its payload against
+source hashes. Provider history syncing and production moderation acceptance
+remain separate roadmap work.
