@@ -12,8 +12,9 @@
 - [x] Update Samsung SM-N986U1 from code 5 to code 6 in place after a private
       app-data backup and matching-certificate check; verify version and local UI.
 - [x] Document related projects, chat evidence and personal-data separation.
-- [ ] Complete Android picker/save/reload/merge walkthrough in a dedicated
-      device session; another app took foreground during verification.
+- [x] Complete physical Android picker/save/reload/merge restore in a dedicated
+      device session; verify private production baseline before/after the code-7
+      in-place upgrade. See [30 October acceptance](PHONE-ACCEPTANCE-2026-10-30.md).
 - [ ] Verify genuine history-only exports, real-account privacy/MFA and
       moderation deployment under the MyPersonas authority.
 - [ ] History-specific provider consent/backend transfers, AI reflection and

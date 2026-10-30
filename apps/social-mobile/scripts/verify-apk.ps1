@@ -22,7 +22,18 @@ try {
         } finally { $stream.Dispose() }
         if ($packedHash -ne (Get-FileHash -LiteralPath (Join-Path $appRoot $relative) -Algorithm SHA256).Hash) { throw "Stale packaged web asset: $relative" }
     }
+    foreach ($entry in $archive.Entries | Where-Object { $_.FullName.StartsWith('assets/') -and -not $_.FullName.StartsWith('assets/www/') -and $_.Name }) {
+        if ($entry.FullName -in @('assets/dexopt/baseline.prof', 'assets/dexopt/baseline.profm')) { continue }
+        if ($entry.FullName -ne 'assets/app-guide.json') { throw "Unexpected native asset: $($entry.FullName)" }
+        $stream = $entry.Open()
+        try {
+            $sha = [Security.Cryptography.SHA256]::Create()
+            try { $packedHash = [Convert]::ToHexString($sha.ComputeHash($stream)) } finally { $sha.Dispose() }
+        } finally { $stream.Dispose() }
+        if ($packedHash -ne (Get-FileHash -LiteralPath "$appRoot\android\app\src\main\assets\app-guide.json" -Algorithm SHA256).Hash) { throw 'Packaged app guide differs from source.' }
+    }
     $forbidden = @($archive.Entries | Where-Object { $_.FullName -match '(^|/)(status-handoff\.md|\.env[^/]*|debug\.keystore|local\.properties|node_modules|evidence|fixtures)(/|$)' })
     if ($forbidden.Count) { throw 'APK contains development or private material.' }
-    Write-Output "APK payload verified: $($entries.Count) allowlisted web files match source SHA256; no handoff, environment, signing key, fixtures or evidence."
+    if (@($archive.Entries | Where-Object { $_.FullName -match '\.(tar|bak|sqlite|db|backup)$|akasha-test-|PhoneAcceptance|private-app-data' }).Count) { throw 'APK contains a personal-data archive, database or acceptance fixture.' }
+    Write-Output "APK payload verified: $($entries.Count) allowlisted web files match source SHA256; native assets allowlisted; no personal archives, handoffs, environment, signing keys, fixtures or evidence."
 } finally { $archive.Dispose() }

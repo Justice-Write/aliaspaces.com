@@ -29,6 +29,11 @@ The isolated local/demo social mobile prototype lives in
 
 ## Akasha mobile prerelease — 29 October 2026
 
+**30 October:** Android 0.4.1-akasha/code 7 is installed and the physical
+picker/save/restore gate passed. See [phone acceptance](docs/PHONE-ACCEPTANCE-2026-10-30.md).
+Personal records/backups stay outside the APK; automatic session/history backup
+and device transfer are excluded by the Android policy.
+
 The Android candidate now includes Akasha's local inbox and account-history
 file imports, native JSON backup dispatch, and the reviewed social-session
 verification fixes. See [release evidence and remaining acceptance](docs/RELEASE-2026-10-29.md)

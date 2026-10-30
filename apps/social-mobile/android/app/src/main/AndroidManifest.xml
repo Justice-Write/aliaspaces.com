@@ -9,7 +9,7 @@
        
         android:supportsRtl="true"
         android:theme="@style/Theme.AliaSpacesLocal"
-        android:usesCleartextTraffic="false" android:icon="@mipmap/portfolio_launcher" android:roundIcon="@mipmap/portfolio_launcher" android:label="AliaSpaces">
+        android:usesCleartextTraffic="false" android:icon="@mipmap/portfolio_launcher" android:roundIcon="@mipmap/portfolio_launcher" android:label="@string/app_name">
         <activity
             android:name=".MainActivity"
             android:exported="true"

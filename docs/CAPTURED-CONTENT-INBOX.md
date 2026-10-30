@@ -19,9 +19,10 @@ Storage follows the local demo's device-local JSON pattern with a separate versi
 The Android asset task includes the page in local mode only. The 29 October
 candidate adds Akasha JSON/TXT/ZIP picker permissions and native JSON backup-save
 dispatch restricted to the exact local Akasha page. Android navigation tests and
-the release build pass; code 6 is installed in place on a physical phone. The
-complete device picker/save/restore walkthrough remains unverified. See
-[the release evidence](RELEASE-2026-10-29.md).
+the release build pass. Code 7 is installed in place on the physical phone.
+The complete picker/save/restore walkthrough passed on 30 October, with
+synthetic tests isolated from production and private baseline preservation
+verified. See [phone acceptance](PHONE-ACCEPTANCE-2026-10-30.md).
 
 ## Next integration step
 
