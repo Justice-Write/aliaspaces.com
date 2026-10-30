@@ -29,6 +29,11 @@ The isolated local/demo social mobile prototype lives in
 
 ## Akasha mobile prerelease — 29 October 2026
 
+**Next candidate, 30 October:** 0.5.0-akasha/code 8 adds local reflection notes,
+reversible library rules, lossless corrupt-storage recovery and Website owner
+controls/routes preservation. Built and source-verified; its phone QA is queued,
+so code 7 remains the installed release. See [current roadmap checkpoint](docs/ROADMAP-CHECKPOINT-2026-10-30.md).
+
 **30 October:** Android 0.4.1-akasha/code 7 is installed and the physical
 picker/save/restore gate passed. See [phone acceptance](docs/PHONE-ACCEPTANCE-2026-10-30.md).
 Personal records/backups stay outside the APK; automatic session/history backup

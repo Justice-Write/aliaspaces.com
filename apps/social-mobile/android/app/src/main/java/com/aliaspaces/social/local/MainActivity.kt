@@ -348,7 +348,7 @@ class MainActivity : AppCompatActivity() {
                 _, message, sourceOrigin, isMainFrame, _ ->
             if (!isMainFrame || sourceOrigin.toString() != "https://$ASSET_HOST" || !isLocalExportDocument()) return@addWebMessageListener
             val data = message.data ?: return@addWebMessageListener
-            if (data.toByteArray(StandardCharsets.UTF_8).size > MAX_EXPORT_BYTES + 1024) return@addWebMessageListener
+            if (data.toByteArray(StandardCharsets.UTF_8).size > MAX_EXPORT_BYTES * 6 + 1024) return@addWebMessageListener
             val request = try { org.json.JSONObject(data) } catch (_: Exception) { return@addWebMessageListener }
             when (request.optString("action")) {
                 "export" -> {
@@ -364,7 +364,8 @@ class MainActivity : AppCompatActivity() {
                     val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
                         addCategory(Intent.CATEGORY_OPENABLE)
                         type = "application/json"
-                        putExtra(Intent.EXTRA_TITLE, if (NavigationPolicy.isAkashaDocument(webView.url ?: "")) "aliaspaces-akashic-records-local.json" else "aliaspaces-local-demo.json")
+                        val akasha = NavigationPolicy.isAkashaDocument(webView.url ?: "")
+                        putExtra(Intent.EXTRA_TITLE, if (akasha && request.optBoolean("recovery", false)) "aliaspaces-akasha-recovery.json" else if (akasha) "aliaspaces-akashic-records-local.json" else "aliaspaces-local-demo.json")
                     }
                     try { startActivityForResult(intent, REQUEST_EXPORT) }
                     catch (_: android.content.ActivityNotFoundException) { cancelPendingDocuments() }
@@ -390,7 +391,7 @@ class MainActivity : AppCompatActivity() {
         const val MODE_WEBSITE = "website"
         const val MODE_SOCIAL = "social"
         const val MODE_LOCAL = "local"
-        private const val LIVE_URL = "https://mypersonas.online/"
+        private const val LIVE_URL = "https://mypersonas.online/#/owner"
         private const val SOCIAL_URL = "https://appassets.androidplatform.net/assets/www/live.html"
         private const val LOCAL_URL = "https://appassets.androidplatform.net/assets/www/index.html"
         private const val ERROR_URL = "https://appassets.androidplatform.net/assets/www/error.html"

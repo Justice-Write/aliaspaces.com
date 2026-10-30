@@ -4,9 +4,9 @@
   "purpose": "your different spaces",
   "intro": "Explore AliaSpaces through three distinct modes while keeping the relationship to your MyPersonas account clear.",
   "features": [
-    "Website opens the actual AliaSpaces website and shared account system.",
+    "Website opens the existing MyPersonas owner command center with its owner controls retained.",
     "Social opens the first-party social client; sign-in and review gates still apply.",
-    "Local opens a separate demonstration; it does not write to the website database."
+    "Local opens device-only social examples and Akasha history, reflection notes and reversible library views."
   ],
   "demo": [
     "Start in Website to see the real service, or choose Local to inspect the demonstration.",
@@ -19,5 +19,5 @@
     "Confirm the selected account and mode before using online features."
   ],
   "boundary": "Website, Social and Local are different experiences. Local demo records are not online posts. Production authorization, moderation and multi-account privacy still need release verification.",
-  "privacy": "Only enter credentials into the real sign-in flow. This walkthrough performs no sign-in, account linking or publication."
+  "privacy": "Personal records, notes and backups stay outside the installer. View rules do not delete history or change external feeds. This guide performs no sign-in, linking or publication."
 }
