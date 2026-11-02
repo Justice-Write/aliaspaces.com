@@ -1,10 +1,23 @@
 # AliaSpaces website roadmap
 
-Last reconciled: 2026-10-16 AKDT
+Last reconciled: 2026-11-02 Anchorage
+
+## Current reconciliation
+
+The release coordinator is sequencing the owner-authorized two-site deployment.
+This branch combines the domain split with PR #6's newest local features. Website
+opens aliaspaces.com, management remains MyPersonas, and the mobile adapter does
+not hide website controls. Final upstream pin/build readback remains coordinated.
+No phone/native build or deployment is performed in this lane. See
+[receipt](docs/DOMAIN-RECONCILIATION-2026-11-02.md) and [mobile roadmap](docs/ROADMAP.md).
 
 ## Current state
 
-- `aliaspaces.com` is live as a transition page.
+- **Owner ruling 2026-10-31:** `aliaspaces.com` is the social site and
+  `mypersonas.online` is reserved for managing AI-assisted personas. Branch
+  `claude/social-site-on-aliaspaces-20261031` publishes the pinned live build
+  on aliaspaces.com, split by view (`docs/DOMAIN-SPLIT.md`). It is not merged or
+  deployed yet; `main` still serves the old transition redirect.
 - `mypersonas.online` is the live persona-platform destination, but all 27
   database records currently marked for public visibility are nevertheless in
   an unpublished publication state. The September 27 read-only review snapshot contains 25 destination-link entries across the roster; these are not proof of approved provider account bindings.

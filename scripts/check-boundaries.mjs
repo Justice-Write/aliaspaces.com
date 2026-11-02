@@ -50,15 +50,18 @@ for (const file of sourceFiles) {
 assert.deepEqual(violations, [], `Control-plane code crossed the AliaSpaces mobile boundary:\n${violations.join("\n")}`);
 
 const pages = await readFile(path.join(root, ".github/workflows/pages.yml"), "utf8");
-assert.match(pages, /branches:\s*\[main\]/);
+assert.match(pages, /if: github\.ref == 'refs\/heads\/main'/);
 for (const directory of ["apps", "contracts", "docs", "scripts"]) {
   assert.doesNotMatch(pages, new RegExp(`--include ['"]\\/${directory}`));
 }
 
-const frontDoor = ["index.html", "404.html", "README.md"];
+// aliaspaces.com serves the social site; the front door is only the rollback artifact.
+const frontDoor = ["front-door/index.html", "front-door/404.html"];
 for (const name of frontDoor) {
   const text = await readFile(path.join(root, name), "utf8");
   assert.match(text, /mypersonas\.online/);
 }
+assert.match(pages, /repository: Justice-Write\/MyPersonas/);
+assert.match(pages, /merge-base --is-ancestor/);
 
 console.log(`Boundary check passed for ${sourceFiles.length} mobile source files.`);

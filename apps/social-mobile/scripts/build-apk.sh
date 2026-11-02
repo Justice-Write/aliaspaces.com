@@ -1,79 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
-
 root="$(cd "$(dirname "$0")/.." && pwd)"
 android="$root/android"
 dist="$root/dist"
 sdk_root="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-$HOME/android-sdk}}"
-export ANDROID_SDK_ROOT="$sdk_root"
-export ANDROID_HOME="$sdk_root"
-
-mkdir -p "$dist" "$sdk_root"
-
-if [[ ! -x "$sdk_root/cmdline-tools/latest/bin/sdkmanager" ]]; then
-  echo "Installing Android command-line tools into $sdk_root"
-  tmp="$(mktemp -d)"
-  curl -fsSL -o "$tmp/cmdline-tools.zip" "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
-  unzip -q "$tmp/cmdline-tools.zip" -d "$tmp"
-  mkdir -p "$sdk_root/cmdline-tools/latest"
-  cp -a "$tmp/cmdline-tools/." "$sdk_root/cmdline-tools/latest/"
-  rm -rf "$tmp"
-fi
-
-mkdir -p "$sdk_root/licenses"
-cat > "$sdk_root/licenses/android-sdk-license" <<'EOF'
-24333f8a63b6825ea9c5514f83c2829b004d1fee
-EOF
-cat > "$sdk_root/licenses/android-sdk-preview-license" <<'EOF'
-84831b9409646a7d528cd98f8d76f316ba667e4
-EOF
-"$sdk_root/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$sdk_root" \
-  "platform-tools" \
-  "platforms;android-34" \
-  "build-tools;34.0.0"
-
-if [[ ! -f "$android/debug.keystore" ]]; then
-  keytool -genkeypair -alias aliaspaceslocal -keyalg RSA -keysize 2048 -validity 10000 \
-    -keystore "$android/debug.keystore" -storepass android -keypass android \
-    -dname "CN=AliaSpaces Local Demo, OU=Local, O=AliaSpaces, L=Local, ST=Local, C=US"
-fi
-
+# SDK/license installation is an owner setup step, never an implicit build action.
+[[ -f "$sdk_root/platforms/android-36/android.jar" ]] || { echo 'Install Android SDK platform 36 first.' >&2; exit 1; }
+[[ -x "$sdk_root/build-tools/36.0.0/apksigner" ]] || { echo 'Install Android build-tools 36.0.0 first.' >&2; exit 1; }
+[[ -f "$android/gradle/wrapper/gradle-wrapper.jar" ]] || { echo 'Committed Gradle wrapper is missing.' >&2; exit 1; }
+[[ -f "$android/debug.keystore" ]] || { echo 'Existing local-demo signing key required; do not generate a replacement.' >&2; exit 1; }
+command -v java >/dev/null || { echo 'JDK 17+ is required.' >&2; exit 1; }
+export ANDROID_SDK_ROOT="$sdk_root" ANDROID_HOME="$sdk_root"
 printf 'sdk.dir=%s\n' "$sdk_root" > "$android/local.properties"
-
-if [[ ! -f "$android/gradle/wrapper/gradle-wrapper.jar" ]]; then
-  if command -v gradle >/dev/null 2>&1; then
-    (cd "$android" && gradle wrapper --gradle-version 8.7)
-  else
-    echo "Downloading Gradle wrapper jar"
-    curl -fsSL -o "$android/gradle/wrapper/gradle-wrapper.jar" \
-      "https://raw.githubusercontent.com/gradle/gradle/v8.7.0/gradle/wrapper/gradle-wrapper.jar"
-  fi
-fi
-
-chmod +x "$android/gradlew" 2>/dev/null || true
-if [[ ! -x "$android/gradlew" ]]; then
-  cat > "$android/gradlew" <<'EOF'
-#!/usr/bin/env sh
-APP_HOME=$(cd "$(dirname "$0")" && pwd)
-exec java -Xmx64m -Xms64m -classpath "$APP_HOME/gradle/wrapper/gradle-wrapper.jar" org.gradle.wrapper.GradleWrapperMain "$@"
-EOF
-  chmod +x "$android/gradlew"
-fi
-
-(cd "$android" && ./gradlew :app:assembleDebug --no-daemon)
-
-apk="$(find "$android/app/build/outputs/apk/debug" -name '*.apk' | head -n 1)"
-if [[ -z "$apk" ]]; then
-  echo "Debug APK was not produced" >&2
-  exit 1
-fi
-
-cp "$apk" "$dist/AliaSpaces-local-demo-debug.apk"
-cp "$apk" "$dist/AliaSpaces-social-debug.apk"
-if [[ -d /opt/cursor/artifacts ]]; then
-  cp "$apk" /opt/cursor/artifacts/AliaSpaces-local-demo-debug.apk
-  cp "$apk" /opt/cursor/artifacts/AliaSpaces-social-debug.apk
-fi
-
-keytool -printcert -jarfile "$dist/AliaSpaces-local-demo-debug.apk" || true
-echo "APK ready: $dist/AliaSpaces-local-demo-debug.apk"
+(cd "$android" && bash ./gradlew :app:testDebugUnitTest :app:assembleRelease --no-daemon --console=plain)
+version="$(sed -n 's/.*versionName "\([0-9.]*-akasha\)".*/\1/p' "$android/app/build.gradle")"
+[[ -n "$version" ]] || { echo 'Version name not found.' >&2; exit 1; }
+mkdir -p "$dist"
+apk="$dist/AliaSpaces-$version-local-signed.apk"
+cp "$android/app/build/outputs/apk/release/app-release.apk" "$apk"
+"$sdk_root/build-tools/36.0.0/apksigner" verify --verbose "$apk"
+if command -v sha256sum >/dev/null; then (cd "$dist" && sha256sum "$(basename "$apk")" > SHA256SUMS.txt); fi
+printf 'Local-demo signed release APK: %s\n' "$apk"
+printf 'Before publication, run scripts/verify-apk.ps1 with PowerShell 7 to verify the payload boundary.\n'

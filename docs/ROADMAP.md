@@ -1,6 +1,40 @@
 # AliaSpaces roadmap
 
-## Current checkpoint — 29 October 2026
+## Current reconciliation — 2 November 2026
+
+- [x] Combine domain-split source with PR #6 without losing local Akasha
+      reflection/view-rule/recovery features or backup exclusions.
+- [x] Website starts on aliaspaces.com; explicit management link opens the
+      MyPersonas owner command center. The adapter hides no controls and
+      delegates cross-domain routing to the websites.
+- [x] Retain the pinned/audited social-site builder and five-file redirect rollback.
+- [x] Pin reconciled MyPersonas main `95edd7fb` and verify the actual audited
+      social artifact/runtime identity against the frozen source checkout.
+- [ ] Coordinator completes backend/private-canary release evidence and sequences
+      the guarded two-site deployment; no local build claims live delivery.
+- [ ] Build/install/accept Android 0.5.1/code 9 in a separately authorized slot.
+      No native build or phone action in this source-only lane.
+
+See [current receipt](DOMAIN-RECONCILIATION-2026-11-02.md). Older code-8 build and
+phone claims below apply only to their original payload; they do not verify this
+new source. Reports remain gated on an implemented MyPersonas contract.
+
+## Current checkpoint — 30 October 2026
+
+The completed code-7 release is installed and published; PR #5 is merged.
+The next source candidate is **0.5.0-akasha/code 8**. Code-7 phone acceptance
+does not cover the new payload. See [current continuation](ROADMAP-CHECKPOINT-2026-10-30.md).
+
+- [x] Personal per-record reflections: notes, emotional effects and next steps;
+      searchable, device-local, with backwards-compatible JSON backup/merge.
+- [x] Editable, reversible library view rules for exact tags, literal phrases
+      and import sources; hidden original records remain in complete backups.
+- [x] Lossless corrupt-storage recovery export; refuse mutations/empty fallback.
+- [x] Preserve the MyPersonas owner command center and existing Website routes;
+      remove the earlier social-only hiding/redirect adapter.
+- [x] Explicit exact-HTTPS host trust and deterministic existing-toolchain builds.
+- [ ] Code-8 native acceptance: queued behind owner phone-PWA gestures; preserve
+      production and separately labeled synthetic QA data, with no clear/uninstall.
 
 - [x] Combine local Akasha capture/history imports with PR #3 session/report
       safety fixes in an isolated release branch.
@@ -17,15 +51,16 @@
       in-place upgrade. See [30 October acceptance](PHONE-ACCEPTANCE-2026-10-30.md).
 - [ ] Verify genuine history-only exports, real-account privacy/MFA and
       moderation deployment under the MyPersonas authority.
-- [ ] History-specific provider consent/backend transfers, AI reflection and
-      user-controlled feed filters remain future work.
+- [ ] History-specific provider consent/backend transfers and AI reflection
+      need approved provider/model contracts. Local non-AI reflection and library
+      rules are implemented; changing external provider feeds is not.
 
 See [release details](RELEASE-2026-10-29.md) and
 [data/package boundaries](DATA-AND-PACKAGING.md). Older milestone paragraphs
 below are historical checkpoints, not current cloud/device limitations.
 
 This repository is the AliaSpaces product home. `main` still publishes only
-the four-file HTTPS front door that redirects `aliaspaces.com` to
+the five-file HTTPS front door that redirects `aliaspaces.com` to
 `https://mypersonas.online`. Application work lives in separate directories
 and is not part of that Pages artifact.
 
@@ -67,9 +102,9 @@ Status: **implemented in this checkout**.
 
 - [x] Website mode opens `https://mypersonas.online/` with cookies, so
       sign-in and social data are the website’s Supabase project.
-- [x] Automation studio, briefings, schedule, agent board, HQ, composer,
-      provider setup, fan inbox, and business settings are hidden or
-      redirected to Home in the website shell. Discovery stays social.
+- [x] Historical social-only hiding was removed in the code-8 candidate.
+      Website mode preserves owner controls and routes; the separate Social
+      client continues to use its narrow public contract.
 - [x] Local demo remains a separate tab and still says local/demo.
 - [x] Chrome button is an explicit separate browser session. Google login
       inside WebView may fail; that is not treated as app sign-in success.
@@ -104,7 +139,8 @@ physical phone and not the owner's local phone-test builds):
 - Local/demo banner is visible and states there are no online users.
 - Two local profiles can post; a block hides the other author's post for
   both sides.
-- Live website shell hides Matrix/studio and keeps Sign in.
+- Historical shell smoke hid Matrix/studio; the code-8 fixture instead proves
+  owner controls remain visible and routes are preserved.
 - First-party Social tab fixture mode signs in, blocks, and review-gates
   a post without touching production.
 
@@ -132,8 +168,8 @@ physical phone and not the owner's local phone-test builds):
   contracts, not copy privileged implementations.
 - No production database, Edge Function, OAuth callback, DNS, or Pages
   allowlist change is authorized from this mobile milestone.
-- Real-device Android/iOS install proof is owner-gated. This cloud checkout
-  does not have the owner's existing phone prototypes.
+- Android code 7 has physical acceptance; code 8 awaits its coordinated QA slot.
+  iOS physical acceptance and store distribution remain unverified.
 - Store listings and submissions wait for a later owner pass. Both store
   accounts are recorded as verified; Google is personal; do not submit.
 - Two-account privacy, MFA recovery, and live moderation staffing are

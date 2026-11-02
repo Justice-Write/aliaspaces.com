@@ -1,0 +1,8 @@
+{
+  "schema": "aliaspaces-social-site-source-v1",
+  "repository": "Justice-Write/MyPersonas",
+  "commit": "95edd7fbdff684079d65784a77c8a3e30e33b4c2",
+  "siteDir": "MyPersonas.Online_v0",
+  "workflow": ".github/workflows/pages.yml",
+  "rule": "Pin only a commit that is already on MyPersonas main and includes domain-split.js. The Pages workflow refuses anything else. Bumping this pin is how aliaspaces.com picks up a new build."
+}

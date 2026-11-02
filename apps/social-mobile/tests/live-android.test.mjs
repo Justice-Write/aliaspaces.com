@@ -15,7 +15,7 @@ test("Android shell has website, first-party social, and local demo modes", asyn
   assert.match(manifest, /android.intent.action.VIEW/);
   assert.match(manifest, /mypersonas\.online/);
   assert.match(manifest, /aliaspaces/);
-  assert.match(activity, /https:\/\/mypersonas\.online\//);
+  assert.match(activity, /LIVE_URL = "https:\/\/aliaspaces\.com\/"/, "Website mode opens the social site");
   assert.match(activity, /appassets\.androidplatform\.net\/assets\/www\/index.html/);
   assert.match(activity, /appassets\.androidplatform\.net\/assets\/www\/live.html/);
   assert.match(activity, /appassets\.androidplatform\.net\/assets\/www\/error.html/);
@@ -23,7 +23,7 @@ test("Android shell has website, first-party social, and local demo modes", asyn
   assert.match(activity, /CustomTabsIntent/);
   assert.match(activity, /lastMode/);
   assert.match(activity, /MODE_SOCIAL/);
-  assert.match(gradle, /versionName "0\.4\.\d+-akasha"/);
+  assert.match(gradle, /versionName "0\.\d+\.\d+-akasha"/);
   assert.match(gradle, /versionCode \d+/);
   assert.match(gradle, /live\.html/);
   assert.doesNotMatch(activity, /service_role|SUPABASE_SERVICE_ROLE/);

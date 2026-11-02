@@ -1,6 +1,6 @@
 # Program files and personal data
 
-Reviewed 29 October 2026. Application code and user records are separable.
+Reviewed 2 November 2026. Application code and user records are separable.
 An installer needs the program; it must not contain the owner's account history,
 persona libraries, sessions, exports or recovery archives.
 
@@ -22,13 +22,14 @@ Do not delete or consolidate them solely because their names overlap.
 
 | Material | Included? | Purpose / preservation |
 | --- | --- | --- |
-| Five front-door files | Pages only | Redirect HTML, icon, CNAME and .nojekyll |
+| Audited public website files from pinned MyPersonas source | Social Pages only | Social identity transformed; no user histories/sessions/backups |
+| Five front-door files | Rollback Pages only | Redirect HTML, icon, CNAME and .nojekyll |
 | Five mobile HTML entrypoints and src JS/CSS | APK | 19 exact source-matched web assets in this candidate |
 | Compiled Android code, resources, static guide, dependencies | APK | Runtime program, not owner content |
 | Public Supabase URL/key and RPC contract | APK | Public client configuration; authorization remains server-side |
 | Private/service credentials or refresh tokens | No | Never package or publish |
 | Android WebView cookies, localStorage, preferences | No | Device app data; keep across in-place upgrades |
-| Akasha original history rows, account labels, reviews, tags | No | Personal records; explicit JSON export/merge backup |
+| Akasha original history rows, account labels, reviews, tags, reflections and rules | No | Personal records; explicit JSON export/merge backup |
 | Source history archives, saved exports and backup tar files | No | Private owner files; store outside checkout/releases |
 | Desktop character/media/project/history libraries and model weights | No | External user assets and optional model dependencies |
 | Tests/fixtures, screenshots, handoffs, node_modules, SDK/cache | No | Development/review material, not runtime payload |

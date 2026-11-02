@@ -35,7 +35,15 @@ Akasha is the feature name and proposed AliaSpaces help AI. Akashic records are 
 
 Future direction: users can talk with Akasha about their captured consumption, document memories, reflect on emotional effects and influences on their actions, and choose editable feed filters for their own wellbeing. Preserve the original captured history; filtering should change what they see going forward, under their control. No automatic moral classification or hidden relevance deletion.
 
-Conversation, reflection tools, feed filtering, and history syncing are not implemented in this local slice. Existing manual capture and honest coverage remain. The legacy pantry storage key, schema, module paths, and backup importer remain compatible so the rename does not strand existing records. Old pantry.html bookmarks redirect to akasha.html on the same origin.
+Code 8 adds local reflection notes, emotional effects and next steps, plus reversible library view rules. Conversation/AI, external provider feed changes and automatic syncing remain blocked on separate contracts. The legacy pantry storage key and version-1 backup importer remain compatible so the rename does not strand existing records. Old pantry.html bookmarks redirect to akasha.html on the same origin.
+
+Reflection limits are 5,000 characters for notes and 2,000 each for effects/next
+steps. Rules support at most 100 entries per category of 200 characters each.
+Search includes saved reflections; hiding rules match original content/tags, not
+personal reflection text. Full backups retain hidden/rejected records, notes and
+rules. Existing edits/rules win on merge. Corrupt raw storage can be exported in
+a lossless JSON recovery envelope; it is not a validated normal backup and cannot
+be directly imported. No mutation or empty fallback replaces the unreadable data.
 
 
 ## Account-history update

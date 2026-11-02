@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,follow">
+  <meta name="theme-color" content="#1877f2">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src 'self'; base-uri 'none'; form-action 'none'; upgrade-insecure-requests">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <title>Page not found — AliaSpaces</title>
+  <style>
+    :root{color-scheme:light;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;background:#f0f2f5;color:#1c1e21}
+    main{width:min(520px,100%);padding:32px;border:1px solid #dddfe2;border-radius:20px;background:#fff;text-align:center}
+    h1{margin:0 0 8px;font-size:28px}p{margin:0 auto 18px;color:#65676b;line-height:1.5}
+    a{display:inline-flex;min-height:44px;align-items:center;padding:10px 18px;border-radius:12px;background:#1877f2;color:#fff;font-weight:700;text-decoration:none}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Page not found</h1>
+    <p>AliaSpaces pages live at addresses like aliaspaces.com/#/p/handle.</p>
+    <a id="home" href="/">Go to AliaSpaces</a>
+  </main>
+  <script>
+    (() => {
+      // A stray path with an app route after it (e.g. /x#/p/avi) opens that route here.
+      if (location.hash.startsWith("#/")) location.replace("/" + location.hash);
+    })();
+  </script>
+</body>
+</html>

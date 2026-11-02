@@ -6,6 +6,16 @@
 does not authorize a deployment, database migration, DNS change, provider
 permission, publication, payment activation, or account change.
 
+## Domains (owner ruling 2026-10-31)
+
+- `aliaspaces.com` is the social media site.
+- `mypersonas.online` is reserved for managing the AI-assisted persona platform
+  that runs inside AliaSpaces.
+
+The owner chose to serve the current live build on aliaspaces.com, split by view
+(`docs/DOMAIN-SPLIT.md`). That supersedes release gate 2 for the shared live
+build only. Gates 3–6 still govern the cutover to the independent social client.
+
 ## AliaSpaces owns
 
 - Persona and business page presentation, custom fields, widgets, layout, and

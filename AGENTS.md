@@ -10,10 +10,11 @@ anything.
 
 ## Repository shape
 
-- The selected GitHub Pages site is a **redirect/front door** only:
-  `index.html`, `404.html`, `CNAME`, `.nojekyll`. Preserve it.
-- The Pages workflow publishes those files plus `favicon.svg` from `main`. Do not add
-  application source to that artifact.
+- Pages publishes the audited public MyPersonas build pinned by
+  `SOCIAL-SITE-SOURCE.json` as the AliaSpaces social site. Keep the original
+  five-file redirect in `front-door/` as the explicit rollback artifact.
+- The release coordinator owns merges/deployment and upstream pin sequencing.
+  Never add local handoffs, apps, backups or private data to the Pages artifact.
 - Social product work lives under `apps/`. The isolated mobile surface is
   `apps/social-mobile/`: Local demo, Website WebView, and first-party
   Social client (`live.html`).
@@ -32,10 +33,12 @@ lifecycle are consumed as versioned contracts.
 ## Working rules
 
 - Implement; do not only plan.
-- Keep approved public copy and the front-door redirect behavior.
+- aliaspaces.com is the social site and mypersonas.online is reserved for
+  managing AI-assisted personas (owner ruling 2026-10-31). Keep `front-door/`
+  intact as the rollback artifact.
 - Local prototypes must say **local/demo**. Do not invent online users or
-  network success. Live website mode may open `mypersonas.online` and must
-  say so; do not hide a failed Google/WebView login as success.
+  network success. Live website mode opens `aliaspaces.com` (management
+  views open `mypersonas.online`) and must say so; do not hide a failed Google/WebView login as success.
 - Separate user-created records from fixtures.
 - Preserve user data. Provide export/import. If Android signing differs,
   tell the owner to keep both installs or import JSON.
