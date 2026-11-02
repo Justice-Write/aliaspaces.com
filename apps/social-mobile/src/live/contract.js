@@ -5,7 +5,8 @@
     audience: "aliaspaces-social-mobile",
     supabaseUrl: "https://nwsqyuucwzihruszocge.supabase.co",
     publishableKey: "sb_publishable_vN6BdSvBKf_yTJt0eeK20w_afKz1Df2",
-    productOrigin: "https://mypersonas.online",
+    productOrigin: "https://aliaspaces.com",
+    managementOrigin: "https://mypersonas.online",
     sessionStorageKey: "aliaspaces.social.live.session.v1",
     identityProjection: Object.freeze([
       "account_id",

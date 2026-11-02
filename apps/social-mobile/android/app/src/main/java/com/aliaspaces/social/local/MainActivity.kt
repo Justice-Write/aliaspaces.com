@@ -391,7 +391,7 @@ class MainActivity : AppCompatActivity() {
         const val MODE_WEBSITE = "website"
         const val MODE_SOCIAL = "social"
         const val MODE_LOCAL = "local"
-        private const val LIVE_URL = "https://mypersonas.online/#/owner"
+        private const val LIVE_URL = "https://aliaspaces.com/"
         private const val SOCIAL_URL = "https://appassets.androidplatform.net/assets/www/live.html"
         private const val LOCAL_URL = "https://appassets.androidplatform.net/assets/www/index.html"
         private const val ERROR_URL = "https://appassets.androidplatform.net/assets/www/error.html"

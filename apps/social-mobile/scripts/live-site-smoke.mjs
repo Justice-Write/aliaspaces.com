@@ -7,8 +7,8 @@ const fixture=await readFile(new URL('../tests/fixtures/owner-website.html',impo
 const browser=await chromium.launch({headless:true,...(process.env.CHROMIUM_PATH?{executablePath:process.env.CHROMIUM_PATH}:{})});
 try {
  const page=await browser.newPage({viewport:{width:390,height:844}});
- await page.route('https://mypersonas.online/**',r=>r.fulfill({contentType:'text/html',body:fixture}));
- await page.goto('https://mypersonas.online/#/owner');
+ await page.route('https://aliaspaces.com/**',r=>r.fulfill({contentType:'text/html',body:fixture}));
+ await page.goto('https://aliaspaces.com/');
  await page.addScriptTag({content:shell});
  await page.evaluate(()=>window.AliaSpacesLiveShell.watch());
  for(const label of ['Choose persona','Research briefs','Four-channel drafts','Approvals','Fan inbox','AI controls','Account portals','Persona companion'])assert.ok(await page.getByRole('button',{name:label,exact:true}).isVisible());
@@ -19,5 +19,6 @@ try {
  assert.equal(await page.locator('#aliaspacesLiveBanner').count(),1);
  await page.locator('#aliaspacesLiveBanner summary').click();
  assert.match(await page.locator('#aliaspacesLiveBanner').innerText(),/owner command center/);
+ assert.equal(await page.getByRole('link',{name:'Open MyPersonas automation platform'}).getAttribute('href'),'https://mypersonas.online/#/owner');
  console.log('Website foundation fixture PASS: owner controls retained, existing routes preserved, shared-account banner idempotent. This is not signed-in/MFA workflow acceptance.');
 }finally{await browser.close();}

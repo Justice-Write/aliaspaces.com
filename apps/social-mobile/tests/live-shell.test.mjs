@@ -24,9 +24,10 @@ test("live hosts allow the website and auth, not arbitrary origins", async () =>
   assert.equal(hosts.isAllowedHost("https://evil.example/steal"), false);
 });
 
-test("Website preserves the owner command center and existing routes", async () => {
+test("Website targets social, keeps management accessible and preserves existing routes", async () => {
   const { AliaSpacesLiveShell: shell } = await load("social-shell.js");
   assert.equal(shell.ownerLanding(), "https://mypersonas.online/#/owner");
+  assert.equal(shell.socialLanding(), "https://aliaspaces.com/");
   const elements = new Map();
   const tools = [{ hidden: false, style: { display: "block" } }];
   const body = { firstChild: tools[0], insertBefore(node) { elements.set(node.id, node); } };

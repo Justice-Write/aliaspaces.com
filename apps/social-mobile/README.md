@@ -2,10 +2,11 @@
 
 The package has three distinct modes, separate from the five-file Pages redirect:
 
-1. **Website** opens the existing MyPersonas owner command center at
-   `https://mypersonas.online/#/owner`. Persona switching, research briefs,
-   four-channel drafts, approvals, inbox and other owner controls are not hidden
-   by this adapter. Website authentication and permissions remain authoritative.
+1. **Website** opens `https://aliaspaces.com/`, the social site. The shared-account
+   banner links to `https://mypersonas.online/#/owner`, the automation platform
+   and owner command center. The websites own domain routing and permissions;
+   this adapter does not hide controls or rewrite their routes. Sessions are
+   separate per domain and Chrome.
 2. **Social** is the first-party social client. It uses only its narrow public
    contract, verifies sessions before private access, and review-gates posts.
 3. **Local demo** keeps profiles/social examples and Akasha on the device.

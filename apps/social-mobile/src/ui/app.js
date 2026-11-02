@@ -268,7 +268,7 @@
       </div>
       <div class="card">
         <h2>Live website is a separate mode</h2>
-        <p>The Android app’s Live tab opens mypersonas.online. This Local tab never signs in and never writes to that database.</p>
+        <p>The Android app’s Live tab opens aliaspaces.com. This Local tab never signs in and never writes to that database.</p>
       </div>
       <div class="card">
         <h2>If the Android signing key changes</h2>

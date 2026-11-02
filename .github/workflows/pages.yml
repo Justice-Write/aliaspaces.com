@@ -1,18 +1,41 @@
-name: Deploy AliaSpaces migration front door
+name: Deploy aliaspaces.com
+
+# Owner ruling 2026-10-31: aliaspaces.com is the social site and
+# mypersonas.online is reserved for managing AI-assisted personas.
+# Default artifact: the pinned MyPersonas build (SOCIAL-SITE-SOURCE.json),
+# split by view. Rollback artifact: the old front door that forwards to
+# mypersonas.online (run this workflow by hand with artifact=front-door).
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
+    inputs:
+      artifact:
+        description: "social-site (default) or front-door (rollback redirect to mypersonas.online)"
+        type: choice
+        options: [social-site, front-door]
+        default: social-site
+      release_confirmation:
+        description: "MIGRATIONS-VERIFIED (social-site only; same evidence as MyPersonas)"
+        type: string
+      provider_release_confirmation:
+        description: "PROVIDER-MIGRATIONS-VERIFIED (social-site only)"
+        type: string
+      image_caption_confirmation:
+        description: "IMAGE-CAPTION-CANARY-VERIFIED after signed-in private canary for the pinned backend"
+        type: string
+      image_caption_backend_run_id:
+        description: "Successful MyPersonas image-caption-drafting backend run for the exact pinned main SHA"
+        type: string
 
 permissions:
+  actions: read
   contents: read
   pages: write
   id-token: write
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
@@ -21,26 +44,101 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    env:
+      ARTIFACT: ${{ inputs.artifact || 'social-site' }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22"
-      - name: Validate front door and release boundary
-        run: node --test tests/front-door.test.mjs
-      - name: Prepare public artifact
+      - name: Validate the AliaSpaces repository
         run: |
-          mkdir -p .pages-artifact
-          rsync -a --delete \
-            --include '/index.html' \
-            --include '/404.html' \
-            --include '/favicon.svg' \
-            --include '/CNAME' \
-            --include '/.nojekyll' \
-            --exclude '*' \
-            ./ .pages-artifact/
+          case "${ARTIFACT}" in social-site|front-door) ;; *) echo "Unknown artifact ${ARTIFACT}"; exit 1 ;; esac
+          node --test tests/*.test.mjs
+          node scripts/check-boundaries.mjs
+      - name: Read the social site pin
+        id: pin
+        if: env.ARTIFACT == 'social-site'
+        run: |
+          commit="$(node -e 'import("./scripts/build-social-site.mjs").then(async m => console.log((await m.readPin()).commit))')"
+          printf '%s' "${commit}" | grep -Eq '^[0-9a-f]{40}$'
+          echo "commit=${commit}" >> "${GITHUB_OUTPUT}"
+      - name: Require the same reviewed release evidence as MyPersonas
+        if: env.ARTIFACT == 'social-site'
+        env:
+          RELEASE_CONFIRMATION: ${{ inputs.release_confirmation }}
+          PROVIDER_RELEASE_CONFIRMATION: ${{ inputs.provider_release_confirmation }}
+          IMAGE_CAPTION_CONFIRMATION: ${{ inputs.image_caption_confirmation }}
+          BACKEND_RUN_ID: ${{ inputs.image_caption_backend_run_id }}
+        run: |
+          test "${RELEASE_CONFIRMATION}" = "MIGRATIONS-VERIFIED"
+          test "${PROVIDER_RELEASE_CONFIRMATION}" = "PROVIDER-MIGRATIONS-VERIFIED"
+          test "${IMAGE_CAPTION_CONFIRMATION}" = "IMAGE-CAPTION-CANARY-VERIFIED"
+          printf '%s' "${BACKEND_RUN_ID}" | grep -Eq '^[1-9][0-9]*$'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        if: env.ARTIFACT == 'social-site'
+        with:
+          repository: Justice-Write/MyPersonas
+          name: image-caption-backend-${{ steps.pin.outputs.commit }}
+          path: .release-evidence
+          run-id: ${{ inputs.image_caption_backend_run_id }}
+          github-token: ${{ github.token }}
+      - name: Bind the social artifact to the deployed backend receipt
+        if: env.ARTIFACT == 'social-site'
+        env:
+          PIN: ${{ steps.pin.outputs.commit }}
+        run: |
+          test -f .release-evidence/image-caption-backend.txt
+          grep -Fx "sha=${PIN}" .release-evidence/image-caption-backend.txt
+          grep -Fx 'scope=image-caption-drafting' .release-evidence/image-caption-backend.txt
+          grep -Fx 'functions=ai-proxy compose-post' .release-evidence/image-caption-backend.txt
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        if: env.ARTIFACT == 'social-site'
+        with:
+          repository: Justice-Write/MyPersonas
+          ref: main
+          fetch-depth: 0
+          path: .social-src
+          persist-credentials: false
+      - name: Require the pin to be on MyPersonas main
+        if: env.ARTIFACT == 'social-site'
+        env:
+          PIN: ${{ steps.pin.outputs.commit }}
+        run: |
+          git -C .social-src merge-base --is-ancestor "${PIN}" HEAD || {
+            echo "Release blocked: ${PIN} is not on MyPersonas main. Merge it there first, then pin the merged commit."
+            exit 1
+          }
+          git -C .social-src checkout --quiet --detach "${PIN}"
+          test "$(git -C .social-src rev-parse HEAD)" = "${PIN}"
+          (cd .social-src && npm test && node scripts/check-frontend-syntax.mjs)
+      - name: Prepare the Pages artifact
+        run: |
+          if [ "${ARTIFACT}" = "front-door" ]; then
+            node scripts/build-social-site.mjs --front-door --out .pages-artifact
+          else
+            node scripts/build-social-site.mjs --source .social-src --out .pages-artifact
+          fi
       - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
           path: .pages-artifact
+      - name: Recheck backend run and both main revisions immediately before deployment
+        if: env.ARTIFACT == 'social-site'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PIN: ${{ steps.pin.outputs.commit }}
+          BACKEND_RUN_ID: ${{ inputs.image_caption_backend_run_id }}
+        run: |
+          backend_api="repos/Justice-Write/MyPersonas/actions/runs/${BACKEND_RUN_ID}"
+          test "$(gh api "${backend_api}" --jq .head_sha)" = "${PIN}"
+          test "$(gh api "${backend_api}" --jq .head_branch)" = "main"
+          test "$(gh api "${backend_api}" --jq .event)" = "workflow_dispatch"
+          test "$(gh api "${backend_api}" --jq .status)" = "completed"
+          test "$(gh api "${backend_api}" --jq .conclusion)" = "success"
+          gh api "${backend_api}" --jq .path | grep -Eq '^\.github/workflows/supabase-deploy\.yml(@refs/heads/main)?$'
+          test "$(gh api repos/Justice-Write/MyPersonas/git/ref/heads/main --jq .object.sha)" = "${PIN}"
+          test "$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha)" = "${GITHUB_SHA}"
       - id: deployment
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4

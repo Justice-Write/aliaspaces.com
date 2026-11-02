@@ -6,8 +6,10 @@ import { fileURLToPath } from "node:url";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-test("both transition pages preserve the complete route without collecting data", async () => {
-  for (const filename of ["index.html", "404.html"]) {
+// The front door is no longer what aliaspaces.com serves (see social-site.test.mjs).
+// It stays intact as the rollback artifact: artifact=front-door in pages.yml.
+test("rollback front door preserves the complete route without collecting data", async () => {
+  for (const filename of ["front-door/index.html", "front-door/404.html"]) {
     const source = await readFile(path.join(repoRoot, filename), "utf8");
     assert.match(source, /<meta name="robots" content="noindex,follow">/);
     assert.match(source, /default-src 'none'/);
@@ -21,14 +23,16 @@ test("both transition pages preserve the complete route without collecting data"
   }
 });
 
-test("the Pages workflow is main-only, pinned, and allowlists only the front door", async () => {
+test("the Pages workflow is manual, main-only and uses pinned actions", async () => {
   const source = await readFile(path.join(repoRoot, ".github", "workflows", "pages.yml"), "utf8");
+  assert.match(source, /workflow_dispatch:/);
+  assert.doesNotMatch(source, /^\s+push:/m, 'merging source must not bypass release evidence');
   assert.match(source, /if: github\.ref == 'refs\/heads\/main'/);
-
   const actionLines = source
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter((line) => line.startsWith("- uses:") || line.startsWith("uses:"));
+  assert.ok(actionLines.length >= 5);
   for (const line of actionLines) {
     assert.match(
       line,
@@ -36,9 +40,6 @@ test("the Pages workflow is main-only, pinned, and allowlists only the front doo
       `mutable or malformed action reference: ${line}`,
     );
   }
-
-  const includedFiles = [...source.matchAll(/--include '\/([^']+)'/g)].map((match) => match[1]);
-  assert.deepEqual(includedFiles, ["index.html", "404.html", "favicon.svg", "CNAME", ".nojekyll"]);
-  assert.match(source, /--exclude '\*'/);
-  assert.doesNotMatch(source, /--include '\/(?:apps|docs|supabase|tests|scripts)\//);
+  assert.doesNotMatch(source, /--include '\/(?:apps|docs|supabase|tests|scripts|contracts)\//);
+  assert.doesNotMatch(source, /secrets\./, "no secrets are needed to publish public files");
 });

@@ -4,7 +4,7 @@
   "purpose": "your different spaces",
   "intro": "Explore AliaSpaces through three distinct modes while keeping the relationship to your MyPersonas account clear.",
   "features": [
-    "Website opens the existing MyPersonas owner command center with its owner controls retained.",
+    "Website opens aliaspaces.com, the social site. The shared-account banner links to the MyPersonas automation platform; each domain has its own session.",
     "Social opens the first-party social client; sign-in and review gates still apply.",
     "Local opens device-only social examples and Akasha history, reflection notes and reversible library views."
   ],

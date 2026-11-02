@@ -1,5 +1,24 @@
 # AliaSpaces roadmap
 
+## Current reconciliation — 2 November 2026
+
+- [x] Combine domain-split source with PR #6 without losing local Akasha
+      reflection/view-rule/recovery features or backup exclusions.
+- [x] Website starts on aliaspaces.com; explicit management link opens the
+      MyPersonas owner command center. The adapter hides no controls and
+      delegates cross-domain routing to the websites.
+- [x] Retain the pinned/audited social-site builder and five-file redirect rollback.
+- [x] Pin reconciled MyPersonas main `95edd7fb` and verify the actual audited
+      social artifact/runtime identity against the frozen source checkout.
+- [ ] Coordinator completes backend/private-canary release evidence and sequences
+      the guarded two-site deployment; no local build claims live delivery.
+- [ ] Build/install/accept Android 0.5.1/code 9 in a separately authorized slot.
+      No native build or phone action in this source-only lane.
+
+See [current receipt](DOMAIN-RECONCILIATION-2026-11-02.md). Older code-8 build and
+phone claims below apply only to their original payload; they do not verify this
+new source. Reports remain gated on an implemented MyPersonas contract.
+
 ## Current checkpoint — 30 October 2026
 
 The completed code-7 release is installed and published; PR #5 is merged.
