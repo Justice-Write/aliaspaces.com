@@ -94,10 +94,49 @@ export function merge(state, incoming) {
   if (state.viewPreferences === undefined && incoming.viewPreferences !== undefined) result.viewPreferences = incoming.viewPreferences;
   return result;
 }
-export function exportCopy(state, { storageBlocked = false, raw = null } = {}) {
+export const NATIVE_EXPORT_MAX_BYTES = 10 * 1024 * 1024;
+const utf8Size = value => new TextEncoder().encode(value).byteLength;
+export function exportCopy(state, { storageBlocked = false, raw = null, maxBytes = Infinity } = {}) {
+  if (maxBytes !== Infinity && (!Number.isSafeInteger(maxBytes) || maxBytes <= 0)) throw Error('Invalid export byte limit.');
   if (storageBlocked) {
     if (typeof raw !== 'string') throw Error('Storage cannot be accessed. No empty recovery copy was created.');
-    return { payload: JSON.stringify({ format: 'aliaspaces-akasha-storage-recovery-v1', storageKey: STORAGE_KEY, rawStorage: raw }, null, 2), filename: 'aliaspaces-akasha-recovery.json', recovery: true };
+    let payload = JSON.stringify({ format: 'aliaspaces-akasha-storage-recovery-v1', storageKey: STORAGE_KEY, rawStorage: raw }, null, 2);
+    if (utf8Size(payload) > maxBytes) {
+      // Preserve UTF-16 code units, including unpaired surrogates. UTF-8 encoding
+      // raw corrupt text would silently replace them; JSON escaping can grow 6x.
+      const envelope = { format: 'aliaspaces-akasha-storage-recovery-v2', storageKey: STORAGE_KEY, encoding: 'utf-16le-base64', rawStorageBase64: '' };
+      const encodedBytes = 4 * Math.ceil(raw.length * 2 / 3);
+      if (encodedBytes + utf8Size(JSON.stringify(envelope, null, 2)) > maxBytes) throw Error('Recovery exceeds the native 10 MiB export budget even in compact form. Original storage is unchanged; no empty copy was created.');
+      const parts = [];
+      for (let offset = 0; offset < raw.length; offset += 8192) {
+        const bytes = [];
+        for (let i = offset; i < Math.min(raw.length, offset + 8192); i++) { const code = raw.charCodeAt(i); bytes.push(code & 255, code >>> 8); }
+        parts.push(String.fromCharCode(...bytes));
+      }
+      envelope.rawStorageBase64 = btoa(parts.join(''));
+      payload = JSON.stringify(envelope, null, 2);
+    }
+    return { payload, filename: 'aliaspaces-akasha-recovery.json', recovery: true };
   }
-  return { payload: JSON.stringify(state, null, 2), filename: 'aliaspaces-akashic-records-local.json', recovery: false };
+  const payload = JSON.stringify(state, null, 2);
+  if (utf8Size(payload) > maxBytes) throw Error('Backup exceeds the native 10 MiB export budget. Records are unchanged; no file was requested.');
+  return { payload, filename: 'aliaspaces-akashic-records-local.json', recovery: false };
+}
+
+// Recovery files deliberately remain separate from validated collection imports.
+// This decoder returns raw text only; it never writes or merges local storage.
+export function decodeRecoveryCopy(payload) {
+  const value = JSON.parse(payload);
+  if (value?.storageKey !== STORAGE_KEY) throw Error('Invalid recovery storage key.');
+  if (value.format === 'aliaspaces-akasha-storage-recovery-v1' && typeof value.rawStorage === 'string') return value.rawStorage;
+  if (value.format !== 'aliaspaces-akasha-storage-recovery-v2' || value.encoding !== 'utf-16le-base64' || typeof value.rawStorageBase64 !== 'string') throw Error('Invalid recovery format.');
+  const bytes = atob(value.rawStorageBase64);
+  if (bytes.length % 2) throw Error('Invalid UTF-16 recovery bytes.');
+  const parts = [];
+  for (let offset = 0; offset < bytes.length; offset += 16384) {
+    const codes = [];
+    for (let i = offset; i < Math.min(bytes.length, offset + 16384); i += 2) codes.push(bytes.charCodeAt(i) | (bytes.charCodeAt(i + 1) << 8));
+    parts.push(String.fromCharCode(...codes));
+  }
+  return parts.join('');
 }

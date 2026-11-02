@@ -67,3 +67,28 @@ test('recovery export preserves unreadable raw storage exactly rather than expor
   assert.throws(() => api.parse(copy.payload));
   assert.throws(() => api.exportCopy(api.empty(), { storageBlocked: true }));
 });
+
+test('bounded native recovery avoids JSON escaping expansion without raising the payload limit', () => {
+  const raw = '\0'.repeat(2 * 1024 * 1024) + '\ud800literal\udfff';
+  const legacy = api.exportCopy(api.empty(), { storageBlocked: true, raw });
+  assert.ok(Buffer.byteLength(legacy.payload) > api.NATIVE_EXPORT_MAX_BYTES);
+  const compact = api.exportCopy(api.empty(), { storageBlocked: true, raw, maxBytes: api.NATIVE_EXPORT_MAX_BYTES });
+  assert.equal(JSON.parse(compact.payload).encoding, 'utf-16le-base64');
+  assert.ok(Buffer.byteLength(compact.payload) < api.NATIVE_EXPORT_MAX_BYTES);
+  assert.equal(api.decodeRecoveryCopy(compact.payload), raw);
+  assert.equal(api.decodeRecoveryCopy(legacy.payload), raw);
+  assert.throws(() => api.parse(compact.payload), /Invalid/);
+});
+
+test('native preflight accepts the exact UTF-8 cap and refuses over-budget copies without mutation', () => {
+  const state = sample(); const before = JSON.stringify(state);
+  const size = Buffer.byteLength(api.exportCopy(state).payload);
+  assert.equal(api.exportCopy(state, { maxBytes: size }).payload, api.exportCopy(state).payload);
+  assert.throws(() => api.exportCopy(state, { maxBytes: size - 1 }), /exceeds/);
+  assert.equal(JSON.stringify(state), before);
+  const raw = 'x'.repeat(11 * 1024 * 1024);
+  assert.throws(() => api.exportCopy(state, { storageBlocked: true, raw, maxBytes: api.NATIVE_EXPORT_MAX_BYTES }), /Original storage is unchanged/);
+  for (const maxBytes of [0, -1, NaN, 1.5]) assert.throws(() => api.exportCopy(state, { maxBytes }), /Invalid/);
+  assert.throws(() => api.decodeRecoveryCopy('{"format":"other"}'), /Invalid/);
+  assert.throws(() => api.decodeRecoveryCopy(JSON.stringify({ format: 'aliaspaces-akasha-storage-recovery-v2', storageKey: api.STORAGE_KEY, encoding: 'utf-16le-base64', rawStorageBase64: 'AA==' })), /Invalid UTF-16/);
+});
