@@ -43,7 +43,10 @@ download settings against backend run `41519827174`. It has only contents/action
 read permissions and cannot deploy or assert private-canary success. Both paths
 use the same exact three-line receipt validator, tested against wrong revisions,
 scope/function drift, duplicate/missing fields and unsupported extra assertions.
-Its hosted access result is pending qualification before coordinator merge.
+Hosted probe `41520222409` at source `7f63517` successfully downloaded that
+cross-repository artifact with the existing token and passed the exact receipt
+validator. No broader token was required. The PR check records overall job
+completion separately; these checks do not assert private-canary success.
 
 The final MyPersonas main pin is
 `95edd7fbdff684079d65784a77c8a3e30e33b4c2` (PR #49 merged). The coordinator
