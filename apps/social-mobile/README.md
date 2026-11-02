@@ -25,6 +25,10 @@ sessions and backups are personal data, not install assets. JSON backup includes
 all saved records, even those hidden by view rules. Existing records/edits win on
 merge. Old version-1 backups remain compatible. Corrupt storage is paused and can
 be exported losslessly in a recovery envelope; it is not a normal import backup.
+Native exports retain a 10 MiB cap. A compact UTF-16LE/base64 recovery envelope
+avoids excessive JSON escaping when it fits that budget; otherwise export refuses
+before opening a picker and preserves storage. Both recovery formats are personal
+data and need deliberate repair, separate from normal backup import.
 Automatic OS backup/device transfer is excluded. See `docs/DATA-AND-PACKAGING.md`.
 
 ## Verify

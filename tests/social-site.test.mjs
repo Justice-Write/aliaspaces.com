@@ -211,6 +211,51 @@ test('pin provenance refuses wrong revisions, dirty public bytes and untracked p
   await assert.rejects(buildSocialSite({ source: f.src, out: f.out, pinFile: f.pinFile }), /uncommitted changes/);
 });
 
+test('pin provenance rejects deleted wildcard members and directories before output creation', async t => {
+  for (const directory of [false, true]) {
+    const f = await fixture();
+    t.after(() => rm(f.dir, { recursive: true, force: true }));
+    await rm(path.join(f.site, directory ? 'assets' : 'assets/hero.png'), { recursive: directory });
+    await assert.rejects(buildSocialSite({ source: f.src, out: f.out, pinFile: f.pinFile }), /missing\/deleted/);
+    await assert.rejects(readdir(f.out), { code: 'ENOENT' });
+  }
+});
+
+test('both builders reject dirty output without overwriting or deleting existing files', async t => {
+  const f = await fixture();
+  t.after(() => rm(f.dir, { recursive: true, force: true }));
+  await mkdir(f.out);
+  await writeFile(path.join(f.out, 'index.html'), 'owner output');
+  await writeFile(path.join(f.out, 'domain-split.js'), 'stale social file');
+  await assert.rejects(buildFrontDoor({ out: f.out }), /must be empty/);
+  await assert.rejects(buildSocialSite({ source: f.src, out: f.out, pinFile: f.pinFile }), /must be empty/);
+  assert.equal(await readFile(path.join(f.out, 'index.html'), 'utf8'), 'owner output');
+  assert.deepEqual(await tree(f.out), ['domain-split.js', 'index.html']);
+});
+
+test('rollback refuses reused social output instead of claiming five files', async t => {
+  const f = await fixture();
+  t.after(() => rm(f.dir, { recursive: true, force: true }));
+  await buildSocialSite({ source: f.src, out: f.out, pinFile: f.pinFile });
+  const before = await tree(f.out);
+  await assert.rejects(buildFrontDoor({ out: f.out }), /must be empty/);
+  assert.deepEqual(await tree(f.out), before);
+});
+
+test('both output modes refuse a linked directory or linked ancestor before writing', async t => {
+  const f = await fixture();
+  t.after(() => rm(f.dir, { recursive: true, force: true }));
+  const target = path.join(f.dir, 'owner-target');
+  const linked = path.join(f.dir, 'linked-output');
+  await mkdir(target);
+  await symlink(target, linked, 'junction');
+  for (const out of [linked, path.join(linked, 'child')]) {
+    await assert.rejects(buildFrontDoor({ out }), /contains a link/);
+    await assert.rejects(buildSocialSite({ source: f.src, out, pinFile: f.pinFile }), /contains a link/);
+  }
+  assert.deepEqual(await readdir(target), []);
+});
+
 test("front-door rollback artifact is the old five-file redirect", async (t) => {
   const dir = await mkdtemp(path.join(os.tmpdir(), "aliaspaces-door-"));
   t.after(() => rm(dir, { recursive: true, force: true }));

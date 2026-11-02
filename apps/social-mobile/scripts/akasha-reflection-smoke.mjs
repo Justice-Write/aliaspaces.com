@@ -79,6 +79,23 @@ try {
   await page.locator('#export').click();
   const request = await page.evaluate(() => window.recoveryRequest);
   assert.equal(request.recovery, true); assert.equal(JSON.parse(request.payload).rawStorage, raw);
+  // Real browser storage can hold this raw value, but JSON escaping exceeds
+  // native's 10 MiB budget. Native dispatch must use a lossless compact copy.
+  await page.evaluate(key => localStorage.setItem(key, '\0'.repeat(2 * 1024 * 1024) + '\ud800'), key);
+  await page.reload();
+  await page.evaluate(() => { window.AliaSpacesAndroid = { postMessage(value) { window.recoveryRequest = JSON.parse(value); } }; });
+  await page.locator('#export').click();
+  const bounded = await page.evaluate(async key => {
+    const api = await import('/src/domain/pantry.js');
+    const request = window.recoveryRequest;
+    return { recovery: request.recovery, format: JSON.parse(request.payload).format,
+      bytes: new TextEncoder().encode(request.payload).length,
+      exact: api.decodeRecoveryCopy(request.payload) === localStorage.getItem(key) };
+  }, key);
+  assert.equal(bounded.recovery, true);
+  assert.match(bounded.format, /recovery-v2$/);
+  assert.ok(bounded.bytes <= 10 * 1024 * 1024);
+  assert.equal(bounded.exact, true);
   assert.deepEqual(errors, []); assert.deepEqual(external, []);
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   console.log('Akasha reflection/view/recovery smoke PASS: drafts, persistence/search, reversible view rules, complete backups, later-note merge preservation, exact corrupt-storage recovery, native recovery dispatch, no external requests.');

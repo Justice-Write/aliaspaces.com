@@ -13,8 +13,8 @@ android {
         applicationId "com.aliaspaces.social.local"
         minSdk 24
         targetSdk 36
-        versionCode 9
-        versionName "0.5.1-akasha"
+        versionCode 10
+        versionName "0.5.2-akasha"
     }
 
     signingConfigs {

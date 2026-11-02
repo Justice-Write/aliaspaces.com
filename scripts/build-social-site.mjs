@@ -139,6 +139,27 @@ async function put(out, relative, data) {
   await writeFile(target, data);
 }
 
+async function prepareEmptyOutput(out) {
+  const target = path.resolve(out);
+  // Refuse links before mkdir/copy; never clean or overwrite an owner's output.
+  for (let current = target; ; current = path.dirname(current)) {
+    try {
+      const info = await lstat(current);
+      if (info.isSymbolicLink()) throw new Error(`Output path contains a link: ${current}`);
+      if (current === target && !info.isDirectory()) throw new Error('Output must be a real empty directory');
+    } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    if (path.dirname(current) === current) break;
+  }
+  await mkdir(target, { recursive: true });
+  if ((await readdir(target)).length) throw new Error('Output directory must be empty; existing files were preserved');
+}
+
+async function verifyOutputMembers(out, expected) {
+  const actual = await publicFiles(out, () => true);
+  const allowed = new Set(expected);
+  if (actual.length !== allowed.size || actual.some(file => !allowed.has(file))) throw new Error('Artifact output membership differs from the release allowlist');
+}
+
 export async function buildSocialSite({ source, out, pinFile, siteFiles = path.join(repoRoot, "site") }) {
   const pin = await readPin(pinFile);
   const revision = execFileSync('git', ['-C', source, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
@@ -157,13 +178,17 @@ export async function buildSocialSite({ source, out, pinFile, siteFiles = path.j
   for (const required of ['manifest.webmanifest', 'offline.html', 'service-worker.js']) {
     if (!files.includes(required)) throw new Error(`Pinned public build missing ${required}`);
   }
-  const sourceMembers = files.map(relative => `${pin.siteDir}/${relative}`);
-  const tracked = new Set(execFileSync('git', ['-C', source, 'ls-files', '-z'], { encoding: 'utf8' }).split('\0'));
+  const prefix = `${pin.siteDir}/`;
+  const tracked = new Set(execFileSync('git', ['-C', source, 'ls-tree', '-r', '--name-only', '-z', 'HEAD', '--', pin.siteDir], { encoding: 'utf8' }).split('\0').filter(Boolean));
+  const headMembers = [...tracked].filter(file => file.startsWith(prefix) && selected(file.slice(prefix.length), rules));
+  const sourceMembers = files.map(relative => `${prefix}${relative}`);
+  const present = new Set(sourceMembers);
+  for (const relative of headMembers) if (!present.has(relative)) throw new Error(`Pinned public source member is missing/deleted: ${relative}`);
   for (const relative of sourceMembers) if (!tracked.has(relative)) throw new Error(`Public source member is not committed: ${relative}`);
   try {
-    execFileSync('git', ['-C', source, 'diff', '--quiet', 'HEAD', '--', ...sourceMembers, pin.workflow, 'scripts/audit-public-package.mjs']);
+    execFileSync('git', ['-C', source, 'diff', '--quiet', 'HEAD', '--', ...new Set([...headMembers, ...sourceMembers]), pin.workflow, 'scripts/audit-public-package.mjs']);
   } catch { throw new Error('Pinned public source or packaging rules have uncommitted changes'); }
-  await mkdir(out, { recursive: true });
+  await prepareEmptyOutput(out);
   for (const relative of files) {
     const target = path.join(out, ...relative.split("/"));
     await mkdir(path.dirname(target), { recursive: true });
@@ -197,12 +222,14 @@ export async function buildSocialSite({ source, out, pinFile, siteFiles = path.j
     added: ["404.html", ".nojekyll", "social-site-source.json"],
   };
   await put(out, "social-site-source.json", `${JSON.stringify(provenance, null, 2)}\n`);
+  await verifyOutputMembers(out, [...files, '404.html', '.nojekyll', 'social-site-source.json']);
   return provenance;
 }
 
 export async function buildFrontDoor({ out, root = repoRoot }) {
-  await mkdir(out, { recursive: true });
+  await prepareEmptyOutput(out);
   for (const [from, to] of FRONT_DOOR_FILES) await put(out, to, await readFile(path.join(root, from)));
+  await verifyOutputMembers(out, FRONT_DOOR_FILES.map(([, to]) => to));
   return { schema: "aliaspaces-front-door-artifact-v1", files: FRONT_DOOR_FILES.map(([, to]) => to) };
 }
 
