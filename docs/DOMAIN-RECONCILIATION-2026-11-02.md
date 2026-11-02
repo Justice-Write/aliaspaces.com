@@ -38,6 +38,12 @@ canary confirmation and exact backend run/artifact receipt as MyPersonas. It che
 the expected workflow, exact pinned main revision, successful dispatch, receipt
 SHA/scope/functions and both repositories' current main tips before deploying.
 Cross-repository artifact read failures stop the workflow; they are not skipped.
+The read-only `verify-upstream-receipt.yml` probe uses the production token and
+download settings against backend run `41519827174`. It has only contents/actions
+read permissions and cannot deploy or assert private-canary success. Both paths
+use the same exact three-line receipt validator, tested against wrong revisions,
+scope/function drift, duplicate/missing fields and unsupported extra assertions.
+Its hosted access result is pending qualification before coordinator merge.
 
 The final MyPersonas main pin is
 `95edd7fbdff684079d65784a77c8a3e30e33b4c2` (PR #49 merged). The coordinator
@@ -49,7 +55,7 @@ release dependencies; no SQL or provider changes are performed here.
 
 ## Validation
 
-**Final validation: 69/69 Node tests and 39-file boundary PASS; all four local
+**Final validation: 70/70 Node tests and 39-file boundary PASS; all four local
 headless browser smokes PASS; workflow YAML syntax PASS.** The final pin produces
 126 source-audited public files before explicit social rewrites/additions. The
 real-artifact headless smoke passes on that exact merged revision, including

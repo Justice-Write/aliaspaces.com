@@ -90,10 +90,7 @@ jobs:
         env:
           PIN: ${{ steps.pin.outputs.commit }}
         run: |
-          test -f .release-evidence/image-caption-backend.txt
-          grep -Fx "sha=${PIN}" .release-evidence/image-caption-backend.txt
-          grep -Fx 'scope=image-caption-drafting' .release-evidence/image-caption-backend.txt
-          grep -Fx 'functions=ai-proxy compose-post' .release-evidence/image-caption-backend.txt
+          node scripts/verify-backend-receipt.mjs --pin "${PIN}" --receipt .release-evidence/image-caption-backend.txt
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         if: env.ARTIFACT == 'social-site'
         with:

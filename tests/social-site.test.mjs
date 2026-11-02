@@ -244,9 +244,7 @@ test('social deployment cannot bypass upstream backend receipt and owner canary 
   assert.doesNotMatch(wf, /^\s+push:/m);
   for (const value of ['MIGRATIONS-VERIFIED', 'PROVIDER-MIGRATIONS-VERIFIED', 'IMAGE-CAPTION-CANARY-VERIFIED']) assert.ok(wf.includes(value));
   assert.match(wf, /repository: Justice-Write\/MyPersonas\n\s+name: image-caption-backend-\$\{\{ steps.pin.outputs.commit \}\}/);
-  assert.match(wf, /grep -Fx "sha=\$\{PIN\}"/);
-  assert.match(wf, /scope=image-caption-drafting/);
-  assert.match(wf, /functions=ai-proxy compose-post/);
+  assert.match(wf, /verify-backend-receipt\.mjs --pin "\$\{PIN\}" --receipt \.release-evidence\/image-caption-backend\.txt/);
   for (const field of ['head_sha', 'head_branch', 'event', 'status', 'conclusion', 'path']) assert.ok(wf.includes(`--jq .${field}`));
   assert.match(wf, /repos\/Justice-Write\/MyPersonas\/git\/ref\/heads\/main/);
   assert.match(wf, /repos\/\$\{GITHUB_REPOSITORY\}\/git\/ref\/heads\/main/);
