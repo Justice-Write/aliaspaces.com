@@ -98,8 +98,9 @@ $('capture').onsubmit = event => { event.preventDefault(); guarded(() => { save(
 for (const id of ['filter-day', 'collection', 'search']) $(id).oninput = render;
 $('export').onclick = () => guarded(() => {
   if (localStorage.getItem(api.STORAGE_KEY) !== savedRaw) throw Error('Akasha changed in another tab. Reload before exporting to avoid an outdated backup.');
-  const copy = api.exportCopy(state, { storageBlocked, raw: savedRaw });
-  if (window.AliaSpacesAndroid && typeof window.AliaSpacesAndroid.postMessage === 'function') {
+  const native = window.AliaSpacesAndroid && typeof window.AliaSpacesAndroid.postMessage === 'function';
+  const copy = api.exportCopy(state, { storageBlocked, raw: savedRaw, maxBytes: native ? api.NATIVE_EXPORT_MAX_BYTES : Infinity });
+  if (native) {
     window.AliaSpacesAndroid.postMessage(JSON.stringify({ action: 'export', payload: copy.payload, recovery: copy.recovery }));
     message(copy.recovery ? 'Choose where to save the recovery copy. It preserves stored text and is not a regular import backup.' : 'Choose where to save your private backup. Android will confirm whether it was saved.');
     return;

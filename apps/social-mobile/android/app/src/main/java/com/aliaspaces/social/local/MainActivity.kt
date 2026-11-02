@@ -348,12 +348,15 @@ class MainActivity : AppCompatActivity() {
                 _, message, sourceOrigin, isMainFrame, _ ->
             if (!isMainFrame || sourceOrigin.toString() != "https://$ASSET_HOST" || !isLocalExportDocument()) return@addWebMessageListener
             val data = message.data ?: return@addWebMessageListener
-            if (data.toByteArray(StandardCharsets.UTF_8).size > MAX_EXPORT_BYTES * 6 + 1024) return@addWebMessageListener
+            if (!ExportPolicy.acceptsMessage(data.toByteArray(StandardCharsets.UTF_8).size)) {
+                Toast.makeText(this, "Export request exceeds the native message limit. Stored records are unchanged.", Toast.LENGTH_LONG).show()
+                return@addWebMessageListener
+            }
             val request = try { org.json.JSONObject(data) } catch (_: Exception) { return@addWebMessageListener }
             when (request.optString("action")) {
                 "export" -> {
                     val payload = request.optString("payload")
-                    if (payload.toByteArray(StandardCharsets.UTF_8).size > MAX_EXPORT_BYTES) {
+                    if (!ExportPolicy.acceptsPayload(payload.toByteArray(StandardCharsets.UTF_8).size)) {
                         Toast.makeText(this, "Backup exceeds the 10 MB native export limit.", Toast.LENGTH_LONG).show()
                         return@addWebMessageListener
                     }
@@ -405,7 +408,6 @@ class MainActivity : AppCompatActivity() {
         private const val PREF_WEBSITE_URL = "lastWebsiteUrl"
 
         private const val MAX_JSON_BYTES = 2 * 1024 * 1024
-        private const val MAX_EXPORT_BYTES = 10 * 1024 * 1024
         fun isProductUrl(url: String) = NavigationPolicy.isProduct(url)
     }
 }

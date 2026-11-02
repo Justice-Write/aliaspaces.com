@@ -1,5 +1,18 @@
 # AliaSpaces roadmap
 
+## Confirmed review fixes — 2 November 2026
+
+- [x] Refuse deleted wildcard public assets using committed HEAD membership.
+- [x] Require empty real output and exact output membership for social/rollback;
+      preserve existing files on refusal.
+- [x] Keep native export at 10 MiB with lossless compact recovery when escaping
+      expands data, plus explicit preflight refusal when neither format fits.
+- [x] Node/browser/native unit/release-build and payload validation; no install.
+- [ ] Coordinator integrates cross-repository release lease/active-backend proof,
+      supplies final source pin and sequences guarded two-site deployment.
+
+See [current evidence and format contract](CONFIRMED-REVIEW-FIXES-2026-11-02.md).
+
 ## Current reconciliation — 2 November 2026
 
 - [x] Combine domain-split source with PR #6 without losing local Akasha
